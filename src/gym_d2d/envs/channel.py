@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from .action import Action
 from .device import Device
 from .mode import Mode
 
@@ -10,3 +13,7 @@ class Channel:
         self.mode: Mode = mode
         self.rb: int = rb
         self.tx_pwr_dBm: float = tx_pwr_dBm
+
+    @staticmethod
+    def from_action(action: Action) -> Channel:
+        return Channel(*action)
