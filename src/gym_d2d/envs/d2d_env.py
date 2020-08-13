@@ -1,8 +1,13 @@
+import json
+from pathlib import Path
+from typing import Dict, List, Tuple
+
 import gym
 from gym import spaces
 import numpy as np
 
 from .action import Action
+from .id import Id
 from .mode import Mode
 from .simulator import D2DSimulator
 
@@ -33,8 +38,10 @@ class D2DEnv(gym.Env):
             'cell_radius_m': DEFAULT_CELL_RADIUS_M,
             'd2d_radius_m': DEFAULT_D2D_RADIUS_M,
         }, **env_config)
+        self.device_config = self._load_device_config(env_config)
 
         self.simulator = D2DSimulator(self.num_rbs)
+        self.bses, self.cues, self.due_txs, self.due_rxs = self._create_devices()
 
         num_txs = self.num_cellular_users + self.num_d2d_pairs
         num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
@@ -45,6 +52,41 @@ class D2DEnv(gym.Env):
         self.obs_max = self.cell_radius_m
         self.observation_space = spaces.Box(low=self.obs_min, high=self.obs_max, shape=self.obs_shape)
         self.action_space = spaces.Discrete(self.num_rbs * self.due_max_tx_power_dBm)
+
+    def _create_devices(self):
+        # initialise base stations
+        bses = []
+        for i in range(self.num_base_stations):
+            bs_id = Id(f'bs{i:02d}')
+            config = self.device_config[bs_id]['config'] if bs_id in self.device_config else {}
+            self.simulator.add_base_station(bs_id, config)
+            bses.append(bs_id)
+
+        # initialise cellular UE
+        cues = []
+        for i in range(self.num_cellular_users):
+            cue_id = Id(f'cue{i:02d}')
+            config = self.device_config[cue_id]['config'] if cue_id in self.device_config \
+                else {'max_tx_power_dBm': self.cue_max_tx_power_dBm}
+            self.simulator.add_ue(cue_id, config)
+            cues.append(cue_id)
+
+        # initialise D2D UE
+        due_pairs = []
+        due_txs, due_rxs = [], []
+        for i in range(0, (self.num_d2d_pairs * 2), 2):
+            due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
+            due_tx_config = self.device_config[due_tx_id]['config'] if due_tx_id in self.device_config \
+                else {'max_tx_power_dBm': self.due_max_tx_power_dBm}
+            self.simulator.add_ue(due_tx_id, due_tx_config)
+            due_txs.append(due_tx_id)
+
+            due_rx_config = self.device_config[due_rx_id]['config'] if due_rx_id in self.device_config \
+                else {'max_tx_power_dBm': self.due_max_tx_power_dBm}
+            self.simulator.add_ue(due_rx_id, due_rx_config)
+            due_rxs.append(due_rx_id)
+
+        return bses, cues, due_txs, due_rxs
 
     def reset(self):
         self.simulator.reset()
@@ -69,6 +111,28 @@ class D2DEnv(gym.Env):
 
     def _get_state(self):
         return {}
+
+    def save_device_config(self, config_file: Path) -> None:
+        """Save the environment's device configuration in a JSON file.
+
+        :param config_file: The filepath to save to.
+        """
+        config = {}
+        for device in self.simulator.devices.values():
+            config[device.id] = {
+                'position': device.position.as_tuple(),
+                'config': device.config,
+            }
+        with config_file.open(mode='w') as fid:
+            json.dump(config, fid)
+
+    @staticmethod
+    def _load_device_config(env_config: Dict) -> dict:
+        if 'device_config_file' in env_config and isinstance(env_config['device_config_file'], Path):
+            with env_config['device_config_file'].open(mode='r') as fid:
+                return json.load(fid)
+        else:
+            return {}
 
     @property
     def cue_max_tx_power_dBm(self) -> int:

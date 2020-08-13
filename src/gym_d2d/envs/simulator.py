@@ -32,3 +32,13 @@ class D2DSimulator:
             self.channels[(action.tx_id, action.rx_id)] = Channel.from_action(action)
 
         return {}
+
+    def add_base_station(self, bs_id, config: dict) -> None:
+        bs = BaseStation(bs_id, config)
+        self.base_stations[bs_id] = bs
+        self.devices[bs_id] = bs
+
+    def add_ue(self, ue_id, config: dict) -> None:
+        ue = UserEquipment(ue_id, config)
+        self.ues[ue_id] = ue
+        self.devices[ue_id] = ue
