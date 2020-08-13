@@ -22,11 +22,28 @@ class D2DSimulator:
         self.channels: Dict[Tuple[Id, Id], Channel] = {}
         self.traffic_models: Dict[Tuple[Any], TrafficModel] = {}
 
-    def reset(self):
+    def reset(self, actions: Dict[Id, Action]):
         self.channels.clear()
+        self._generate_traffic(actions)
+        sinrs = self._calculate_sinrs()
+        capacities = self._calculate_network_capacity(sinrs)
+
+        return {
+            'sinrs': sinrs,
+            'capacity': capacities,
+        }
 
     def step(self, actions: Dict[Id, Action]) -> dict:
-        # GENERATE COMMUNICATIONS
+        self._generate_traffic(actions)
+        sinrs = self._calculate_sinrs()
+        capacities = self._calculate_network_capacity(sinrs)
+
+        return {
+            'sinrs': sinrs,
+            'capacity': capacities,
+        }
+
+    def _generate_traffic(self, actions: Dict[Id, Action]) -> None:
         # automated traffic
         rb = 0
         for ids, traffic_model in self.traffic_models.items():
@@ -39,11 +56,12 @@ class D2DSimulator:
             tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]
             self.channels[(tx.id, rx.id)] = Channel(tx, rx, action.mode, action.rb, action.tx_pwr)
 
-        # CALCULATE SINR
+    def _calculate_sinrs(self) -> Dict[Tuple[Id, Id], float]:
         # group by RB
         rbs = defaultdict(set)
         for ids, channel in self.channels.items():
             rbs[channel.rb].add(ids)
+
         sinrs_dB = {}
         for (tx_id, rx_id), channel in self.channels.items():
             tx, rx = self.devices[tx_id], self.devices[rx_id]
@@ -63,22 +81,19 @@ class D2DSimulator:
             nx_pwr_mW = dB_to_linear(tx.thermal_noise_dBm)
             ixnx_pwr_mW = sum_ix_pwr_mW + nx_pwr_mW
             sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(ixnx_pwr_mW)
+        return sinrs_dB
 
-        # CALCULATE NETWORK CAPACITY
+    def _calculate_network_capacity(self, sinrs: Dict[Tuple[Id, Id], float]) -> Dict[Id, float]:
         capacities = {}
         b = 180000  # 1x 180kHz LTE RB
-        for (tx_id, rx_id), sinr_dB in sinrs_dB.items():
+        for (tx_id, rx_id), sinr_dB in sinrs.items():
             tx, rx = self.devices[tx_id], self.devices[rx_id]
             # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
             if sinr_dB > rx.rx_sensitivity_dBm:
                 capacities[tx_id] = b * log2(1 + dB_to_linear(sinr_dB))
             else:
                 capacities[tx_id] = 0
-
-        return {
-            'sinrs': sinrs_dB,
-            'capacity': capacities,
-        }
+        return capacities
 
     def add_base_station(self, bs_id, config: dict) -> BaseStation:
         bs = BaseStation(bs_id, config)

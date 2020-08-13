@@ -10,7 +10,7 @@ from .action import Action
 from .id import Id
 from .mode import Mode
 from .path_loss import FreeSpacePathLoss
-from .position import Position, get_random_position
+from .position import Position, get_random_position, get_random_position_nearby
 from .simulator import D2DSimulator
 from .traffic_model import SimplexTrafficModel
 
@@ -99,7 +99,6 @@ class D2DEnv(gym.Env):
         return bses, cues, due_pairs
 
     def reset(self):
-        self.simulator.reset()
         for device in self.simulator.devices.values():
             if device.id in self.device_config:
                 pos = Position(*self.device_config[device.id]['position'])
@@ -112,36 +111,39 @@ class D2DEnv(gym.Env):
             elif device.id in self.due_pairs:
                 pos = get_random_position(self.cell_radius_m)
             else:
-                # due_tx_id = None
-                # for due_tx_id, due_rx_id in self.due_pairs.items():
-                #     if due_rx_id == device.id:
-                #         break
-                pos = get_random_position(self.cell_radius_m)
+                # pos = get_random_position(self.cell_radius_m)
+                for due_tx_id, due_rx_id in self.due_pairs.items():
+                    if due_rx_id == device.id:
+                        break
+                due_tx = self.simulator.devices[due_tx_id]
+                pos = get_random_position_nearby(self.cell_radius_m, due_tx.position, self.d2d_radius_m)
             device.set_position(pos)
 
-        obs = self._get_state()
+        random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
+                          for due_id in self.due_pairs.keys()}
+        results = self.simulator.reset(random_actions)
+        obs = self._get_state(results['sinrs'])
         return obs
 
     def step(self, actions):
-        due_actions = {}
-        for due_id, action in actions.items():
-            rb = action // self.due_max_tx_power_dBm
-            tx_pwr = action % self.due_max_tx_power_dBm
-            # due_actions[due_id] = Action(due_id, rx_id, Mode.D2D_UNDERLAY, rb, tx_pwr)
-            tx = self.simulator.ues[due_id]
-            rx = self.simulator.ues[self.due_pairs[due_id]]
-            due_actions[due_id] = Action(tx.id, rx.id, Mode.D2D_UNDERLAY, rb, tx_pwr)
-        self.simulator.step(due_actions)
-
-        obs = self._get_state()
+        due_actions = {due_id: self._extract_action(due_id, action_idx) for due_id, action_idx in actions.items()}
+        results = self.simulator.step(due_actions)
+        obs = self._get_state(results['sinrs'])
         rewards = {}
         return obs, rewards, False, {}
+
+    def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
+        rb = action_idx // self.due_max_tx_power_dBm
+        tx_pwr = action_idx % self.due_max_tx_power_dBm
+        tx = self.simulator.ues[due_tx_id]
+        rx = self.simulator.ues[self.due_pairs[due_tx_id]]
+        return Action(tx.id, rx.id, Mode.D2D_UNDERLAY, rb, tx_pwr)
 
     def render(self, mode='human'):
         obs = self._get_state()
         print(obs)
 
-    def _get_state(self):
+    def _get_state(self, sinrs: Dict[Id, float]):
         obs_dict = {}
         for due_id in self.due_pairs.keys():
             tx_pwrs_dBm = []
@@ -155,8 +157,7 @@ class D2DEnv(gym.Env):
             for channel in self.simulator.channels.values():
                 positions.extend(list(channel.rx.position.as_tuple()))
 
-            # obs = list(sinrs.values())
-            obs = []
+            obs = list(sinrs.values())
             obs.extend(tx_pwrs_dBm)
             obs.extend(rbs)
             obs.extend(positions)
