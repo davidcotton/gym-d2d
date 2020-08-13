@@ -98,8 +98,8 @@ class D2DEnv(gym.Env):
         for due_id, action in actions.items():
             rb = action // self.due_max_tx_power_dBm
             tx_pwr = action % self.due_max_tx_power_dBm
-            # due_actions[due_id] = Action(due_id, rx_id, Mode.D2D, rb, tx_pwr)
-            due_actions[due_id] = Action(due_id, 'rx_id', Mode.D2D, rb, tx_pwr)
+            # due_actions[due_id] = Action(due_id, rx_id, Mode.D2D_UNDERLAY, rb, tx_pwr)
+            due_actions[due_id] = Action(due_id, 'rx_id', Mode.D2D_UNDERLAY, rb, tx_pwr)
 
         obs = self._get_state()
         rewards = {}
@@ -110,7 +110,23 @@ class D2DEnv(gym.Env):
         print(obs)
 
     def _get_state(self):
-        return {}
+        tx_pwrs_dBm = []
+        rbs = []
+        positions = []
+        for channel in self.simulator.channels.values():
+            positions.extend(list(channel.tx.position.as_tuple()))
+            tx_pwrs_dBm.append(channel.tx_pwr_dBm)
+            rbs.append(channel.rb)
+        for channel in self.simulator.channels.values():
+            positions.extend(list(channel.rx.position.as_tuple()))
+
+        # obs = list(sinrs.values())
+        obs = []
+        obs.extend(tx_pwrs_dBm)
+        obs.extend(rbs)
+        obs.extend(positions)
+
+        return {'dues': np.array(obs)}
 
     def save_device_config(self, config_file: Path) -> None:
         """Save the environment's device configuration in a JSON file.
