@@ -63,6 +63,17 @@ class Device:
         self.config: dict = config
         self.config['fspl_constant_dB'] = calc_fspl_constant_dB(self.carrier_freq_GHz)
 
+    def eirp_dBm(self, tx_pwr_dBm: float) -> float:
+        """Effective Isotropically Radiated Power
+
+        How much power (in dBm) the device radiates when considering factors such as antenna gain.
+
+        :param tx_pwr_dBm: The transmission power in dBm.
+        :returns: The EIRP in dBm.
+        """
+        # - (10 * log10(self._subcarrier_quantity)) \
+        return tx_pwr_dBm + self.tx_antenna_gain_dBi - self.ix_margin_dB
+
     def free_space_path_loss_dB(self, d: float, tx_gain: float) -> float:
         """Calculate the loss of signal strength in free space.
 
@@ -132,6 +143,9 @@ class BaseStation(Device):
     def __init__(self, id_, config: dict = None) -> None:
         super().__init__(id_, merge_dicts(dict(DEFAULT_BASE_STATION_CONFIG), config or {}))
 
+    def eirp_dBm(self, tx_pwr_dBm: float) -> float:
+        return super().eirp_dBm(tx_pwr_dBm) - self.cable_loss_dB + self.masthead_amplifier_gain_dB
+
     @property
     def cable_loss_dB(self) -> float:
         return self.config['cable_loss_dB']
@@ -144,6 +158,9 @@ class BaseStation(Device):
 class UserEquipment(Device):
     def __init__(self, id_, config: dict = None) -> None:
         super().__init__(id_, merge_dicts(dict(DEFAULT_UE_CONFIG), config or {}))
+
+    def eirp_dBm(self, tx_pwr_dBm: float) -> float:
+        return super().eirp_dBm(tx_pwr_dBm) - self.body_loss_dB
 
     @property
     def control_channel_overhead_dB(self) -> float:
