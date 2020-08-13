@@ -2,6 +2,7 @@ import gym
 from gym import spaces
 import numpy as np
 
+
 DEFAULT_CUE_MAX_TX_POWER_DBM = 23
 DEFAULT_DUE_MAX_TX_POWER_DBM = DEFAULT_CUE_MAX_TX_POWER_DBM
 DEFAULT_NUM_RESOURCE_BLOCKS = 30
@@ -28,6 +29,16 @@ class D2DEnv(gym.Env):
             'cell_radius_m': DEFAULT_CELL_RADIUS_M,
             'd2d_radius_m': DEFAULT_D2D_RADIUS_M,
         }, **env_config)
+
+        num_txs = self.num_cellular_users + self.num_d2d_pairs
+        num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
+        num_tx_obs = 5  # sinrs, tx_pwrs, rbs, tx_pos_x, tx_pos_y
+        num_rx_obs = 2  # rx_pos_x, rx_pos_y
+        self.obs_shape = ((num_txs * num_tx_obs) + (num_rxs * num_rx_obs),)
+        self.obs_min = -self.cell_radius_m
+        self.obs_max = self.cell_radius_m
+        self.observation_space = spaces.Box(low=self.obs_min, high=self.obs_max, shape=self.obs_shape)
+        self.action_space = spaces.Discrete(self.num_rbs * self.due_max_tx_power_dBm)
 
     @property
     def cue_max_tx_power_dBm(self) -> int:
