@@ -2,6 +2,7 @@ from math import log10, pi
 
 from .conversion import dB_to_linear, dBm_to_W, linear_to_dB
 from .id import Id
+from .position import Position
 from .utils import merge_dicts
 
 
@@ -62,6 +63,7 @@ class Device:
         self.id = Id(id_)
         self.config: dict = config
         self.config['fspl_constant_dB'] = calc_fspl_constant_dB(self.carrier_freq_GHz)
+        self.position: Position = Position(0, 0)
 
     def eirp_dBm(self, tx_pwr_dBm: float) -> float:
         """Effective Isotropically Radiated Power
@@ -93,6 +95,9 @@ class Device:
 
         # return 20 * log10(d) + self.fspl_constant_dB
         return 20 * log10(d) + self.fspl_constant_dB - tx_gain - self.rx_antenna_gain_dBi
+
+    def set_position(self, pos: Position) -> None:
+        self.position = pos
 
     @property
     def max_tx_power_dBm(self) -> int:
