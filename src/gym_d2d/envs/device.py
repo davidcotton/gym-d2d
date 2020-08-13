@@ -59,6 +59,20 @@ class Device:
         # - (10 * log10(self._subcarrier_quantity)) \
         return tx_pwr_dBm + self.tx_antenna_gain_dBi - self.ix_margin_dB
 
+    def rx_signal_level_dBm(self, eirp_dBm: float, path_loss_dB: float) -> float:
+        # - self._thermal_noise_dBm \
+        # - self._noise_figure_dB \
+        # - self._sinr_dB
+        return eirp_dBm - path_loss_dB + self.rx_antenna_gain_dBi
+
+    @property
+    def rx_sensitivity_dBm(self) -> float:
+        return self.rx_noise_floor_dBm + self.sinr_dB
+
+    @property
+    def rx_noise_floor_dBm(self) -> float:
+        return self.noise_figure_dB + self.thermal_noise_dBm
+
     def set_position(self, pos: Position) -> None:
         self.position = pos
 
@@ -85,10 +99,6 @@ class Device:
     @property
     def thermal_noise_dBm(self) -> float:
         return self.config['thermal_noise_dBm']
-
-    @property
-    def rx_noise_floor_dBm(self) -> float:
-        return self.noise_figure_dB + self.thermal_noise_dBm
 
     @property
     def sinr_dB(self) -> float:
