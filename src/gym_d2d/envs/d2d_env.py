@@ -107,7 +107,7 @@ class D2DEnv(gym.Env):
             # due_actions[due_id] = Action(due_id, rx_id, Mode.D2D_UNDERLAY, rb, tx_pwr)
             tx = self.simulator.ues[due_id]
             rx = self.simulator.ues[self.due_pairs[due_id]]
-            due_actions[due_id] = Action(tx, rx, Mode.D2D_UNDERLAY, rb, tx_pwr)
+            due_actions[due_id] = Action(tx.id, rx.id, Mode.D2D_UNDERLAY, rb, tx_pwr)
         self.simulator.step(due_actions)
 
         obs = self._get_state()
