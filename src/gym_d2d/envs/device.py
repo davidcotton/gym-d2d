@@ -132,7 +132,23 @@ class BaseStation(Device):
     def __init__(self, id_, config: dict = None) -> None:
         super().__init__(id_, merge_dicts(dict(DEFAULT_BASE_STATION_CONFIG), config or {}))
 
+    @property
+    def cable_loss_dB(self) -> float:
+        return self.config['cable_loss_dB']
+
+    @property
+    def masthead_amplifier_gain_dB(self) -> float:
+        return self.config['masthead_amplifier_gain_dB']
+
 
 class UserEquipment(Device):
     def __init__(self, id_, config: dict = None) -> None:
         super().__init__(id_, merge_dicts(dict(DEFAULT_UE_CONFIG), config or {}))
+
+    @property
+    def control_channel_overhead_dB(self) -> float:
+        return self.config['control_channel_overhead_dB']
+
+    @property
+    def body_loss_dB(self) -> float:
+        return self.config['body_loss_dB']
