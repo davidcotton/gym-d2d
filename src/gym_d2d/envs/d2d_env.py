@@ -10,6 +10,7 @@ from .action import Action
 from .id import Id
 from .mode import Mode
 from .simulator import D2DSimulator
+from .traffic_model import SimplexTrafficModel
 
 
 DEFAULT_CUE_MAX_TX_POWER_DBM = 23
@@ -41,16 +42,15 @@ class D2DEnv(gym.Env):
         self.device_config = self._load_device_config(env_config)
 
         self.simulator = D2DSimulator(self.num_rbs)
-        self.bses, self.cues, self.due_txs, self.due_rxs = self._create_devices()
+        # self.bses, self.cues, self.due_txs, self.due_rxs = self._create_devices()
+        self.bses, self.cues, self.due_pairs = self._create_devices()
 
         num_txs = self.num_cellular_users + self.num_d2d_pairs
         num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
         num_tx_obs = 5  # sinrs, tx_pwrs, rbs, tx_pos_x, tx_pos_y
         num_rx_obs = 2  # rx_pos_x, rx_pos_y
-        self.obs_shape = ((num_txs * num_tx_obs) + (num_rxs * num_rx_obs),)
-        self.obs_min = -self.cell_radius_m
-        self.obs_max = self.cell_radius_m
-        self.observation_space = spaces.Box(low=self.obs_min, high=self.obs_max, shape=self.obs_shape)
+        obs_shape = ((num_txs * num_tx_obs) + (num_rxs * num_rx_obs),)
+        self.observation_space = spaces.Box(low=-self.cell_radius_m, high=self.cell_radius_m, shape=obs_shape)
         self.action_space = spaces.Discrete(self.num_rbs * self.due_max_tx_power_dBm)
 
     def _create_devices(self):
@@ -59,7 +59,7 @@ class D2DEnv(gym.Env):
         for i in range(self.num_base_stations):
             bs_id = Id(f'bs{i:02d}')
             config = self.device_config[bs_id]['config'] if bs_id in self.device_config else {}
-            self.simulator.add_base_station(bs_id, config)
+            bs = self.simulator.add_base_station(bs_id, config)
             bses.append(bs_id)
 
         # initialise cellular UE
@@ -68,12 +68,15 @@ class D2DEnv(gym.Env):
             cue_id = Id(f'cue{i:02d}')
             config = self.device_config[cue_id]['config'] if cue_id in self.device_config \
                 else {'max_tx_power_dBm': self.cue_max_tx_power_dBm}
-            self.simulator.add_ue(cue_id, config)
+            cue = self.simulator.add_ue(cue_id, config)
+            traffic_model = SimplexTrafficModel([cue, bs])
+            self.simulator.add_traffic_model(traffic_model)
             cues.append(cue_id)
 
         # initialise D2D UE
-        due_pairs = []
         due_txs, due_rxs = [], []
+        # due_pairs = []
+        due_pairs = {}
         for i in range(0, (self.num_d2d_pairs * 2), 2):
             due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
             due_tx_config = self.device_config[due_tx_id]['config'] if due_tx_id in self.device_config \
@@ -85,8 +88,11 @@ class D2DEnv(gym.Env):
                 else {'max_tx_power_dBm': self.due_max_tx_power_dBm}
             self.simulator.add_ue(due_rx_id, due_rx_config)
             due_rxs.append(due_rx_id)
+            # due_pairs.append((due_tx_id, due_rx_id))
+            due_pairs[due_tx_id] = due_rx_id
 
-        return bses, cues, due_txs, due_rxs
+        # return bses, cues, due_txs, due_rxs
+        return bses, cues, due_pairs
 
     def reset(self):
         self.simulator.reset()
@@ -99,7 +105,10 @@ class D2DEnv(gym.Env):
             rb = action // self.due_max_tx_power_dBm
             tx_pwr = action % self.due_max_tx_power_dBm
             # due_actions[due_id] = Action(due_id, rx_id, Mode.D2D_UNDERLAY, rb, tx_pwr)
-            due_actions[due_id] = Action(due_id, 'rx_id', Mode.D2D_UNDERLAY, rb, tx_pwr)
+            tx = self.simulator.ues[due_id]
+            rx = self.simulator.ues[self.due_pairs[due_id]]
+            due_actions[due_id] = Action(tx, rx, Mode.D2D_UNDERLAY, rb, tx_pwr)
+        self.simulator.step(due_actions)
 
         obs = self._get_state()
         rewards = {}
@@ -110,23 +119,27 @@ class D2DEnv(gym.Env):
         print(obs)
 
     def _get_state(self):
-        tx_pwrs_dBm = []
-        rbs = []
-        positions = []
-        for channel in self.simulator.channels.values():
-            positions.extend(list(channel.tx.position.as_tuple()))
-            tx_pwrs_dBm.append(channel.tx_pwr_dBm)
-            rbs.append(channel.rb)
-        for channel in self.simulator.channels.values():
-            positions.extend(list(channel.rx.position.as_tuple()))
+        obs_dict = {}
+        for due_id in self.due_pairs.keys():
+            tx_pwrs_dBm = []
+            rbs = []
+            positions = []
+            for channel in self.simulator.channels.values():
+                foo = channel.tx.position.as_tuple()
+                positions.extend(list(channel.tx.position.as_tuple()))
+                tx_pwrs_dBm.append(channel.tx_pwr_dBm)
+                rbs.append(channel.rb)
+            for channel in self.simulator.channels.values():
+                positions.extend(list(channel.rx.position.as_tuple()))
 
-        # obs = list(sinrs.values())
-        obs = []
-        obs.extend(tx_pwrs_dBm)
-        obs.extend(rbs)
-        obs.extend(positions)
+            # obs = list(sinrs.values())
+            obs = []
+            obs.extend(tx_pwrs_dBm)
+            obs.extend(rbs)
+            obs.extend(positions)
+            obs_dict[due_id] = np.array(obs)
 
-        return {'dues': np.array(obs)}
+        return obs_dict
 
     def save_device_config(self, config_file: Path) -> None:
         """Save the environment's device configuration in a JSON file.

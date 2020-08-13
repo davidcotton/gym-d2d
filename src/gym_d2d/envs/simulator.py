@@ -33,12 +33,18 @@ class D2DSimulator:
 
         return {}
 
-    def add_base_station(self, bs_id, config: dict) -> None:
+    def add_base_station(self, bs_id, config: dict) -> BaseStation:
         bs = BaseStation(bs_id, config)
         self.base_stations[bs_id] = bs
         self.devices[bs_id] = bs
+        return bs
 
-    def add_ue(self, ue_id, config: dict) -> None:
+    def add_ue(self, ue_id, config: dict) -> UserEquipment:
         ue = UserEquipment(ue_id, config)
         self.ues[ue_id] = ue
         self.devices[ue_id] = ue
+        return ue
+
+    def add_traffic_model(self, traffic_model: TrafficModel):
+        ids = tuple(d.id for d in traffic_model.devices)
+        self.traffic_models[ids] = traffic_model

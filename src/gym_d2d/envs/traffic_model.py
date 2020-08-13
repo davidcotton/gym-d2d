@@ -23,4 +23,4 @@ class SimplexTrafficModel(TrafficModel):
 
     def get_channel(self, rb: int) -> Channel:
         tx_pwr = self.devices[0].max_tx_power_dBm
-        return Channel(self.devices[0].id, self.devices[1].id, Mode.CELLULAR, rb, tx_pwr)
+        return Channel(self.devices[0], self.devices[1], Mode.CELLULAR, rb, tx_pwr)
