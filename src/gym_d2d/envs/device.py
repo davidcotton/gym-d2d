@@ -1,3 +1,5 @@
+from math import log10, pi
+
 from .conversion import dB_to_linear, dBm_to_W, linear_to_dB
 from .id import Id
 from .utils import merge_dicts
@@ -41,11 +43,45 @@ DEFAULT_UE_CONFIG = merge_dicts(dict(DEFAULT_DEVICE_CONFIG), {
 })
 
 
+def calc_fspl_constant_dB(carrier_freq_GHz: float) -> float:
+    """Calculate the constant part of Free Space Path equation.
+
+    We assume a fixed carrier frequency for all communications in our simulation.
+    This means that only the distance and antenna gain parts of the FSPL equation will be changing,
+    so we can memoize the freq + speed of light part to save computation.
+
+    :param carrier_freq_GHz: The carrier frequencies in Ghz.
+    :return: The free space path loss constant in dB.
+    """
+    return 20 * log10(carrier_freq_GHz * 1e9) + 20 * log10((4 * pi) / 299792458)
+
+
 class Device:
     def __init__(self, id_, config: dict) -> None:
         super().__init__()
         self.id = Id(id_)
         self.config: dict = config
+        self.config['fspl_constant_dB'] = calc_fspl_constant_dB(self.carrier_freq_GHz)
+
+    def free_space_path_loss_dB(self, d: float, tx_gain: float) -> float:
+        """Calculate the loss of signal strength in free space.
+
+        FSPL = 20log10(d) + 20log10(f) + 20log10(4pi/c) - G_tx - G_rx
+
+        Where:
+            d: distance in metres
+            f: the carrier frequency in Hz
+            c: speed of light (m/s)
+            G_tx: transmitting antenna gain
+            G_rx: receiving antenna gain
+
+        :param d: The distance in metres.
+        :param tx_gain: The transmitting antenna gain in dB.
+        :return: The free space path loss in dB.
+        """
+
+        # return 20 * log10(d) + self.fspl_constant_dB
+        return 20 * log10(d) + self.fspl_constant_dB - tx_gain - self.rx_antenna_gain_dBi
 
     @property
     def max_tx_power_dBm(self) -> int:
@@ -86,6 +122,10 @@ class Device:
     @property
     def ix_margin_dB(self) -> float:
         return self.config['ix_margin_dB']
+
+    @property
+    def fspl_constant_dB(self) -> float:
+        return self.config['fspl_constant_dB']
 
 
 class BaseStation(Device):
