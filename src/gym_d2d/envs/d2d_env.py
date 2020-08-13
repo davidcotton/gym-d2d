@@ -9,12 +9,15 @@ import numpy as np
 from .action import Action
 from .id import Id
 from .mode import Mode
+from .path_loss import FreeSpacePathLoss
+from .position import Position, get_random_position
 from .simulator import D2DSimulator
 from .traffic_model import SimplexTrafficModel
 
 
 DEFAULT_CUE_MAX_TX_POWER_DBM = 23
 DEFAULT_DUE_MAX_TX_POWER_DBM = DEFAULT_CUE_MAX_TX_POWER_DBM
+DEFAULT_CARRIER_FREQ_GHZ = 2.1
 DEFAULT_NUM_RESOURCE_BLOCKS = 30
 DEFAULT_NUM_BASE_STATIONS = 1
 DEFAULT_NUM_CELLULAR_USERS = 30
@@ -32,6 +35,7 @@ class D2DEnv(gym.Env):
         self.env_config = dict({
             'cue_max_tx_power_dBm': DEFAULT_CUE_MAX_TX_POWER_DBM,
             'due_max_tx_power_dBm': DEFAULT_DUE_MAX_TX_POWER_DBM,
+            'carrier_freq_GHz': DEFAULT_CARRIER_FREQ_GHZ,
             'num_rbs': DEFAULT_NUM_RESOURCE_BLOCKS,
             'num_base_stations': DEFAULT_NUM_BASE_STATIONS,
             'num_cellular_users': DEFAULT_NUM_CELLULAR_USERS,
@@ -41,7 +45,7 @@ class D2DEnv(gym.Env):
         }, **env_config)
         self.device_config = self._load_device_config(env_config)
 
-        self.simulator = D2DSimulator(self.num_rbs)
+        self.simulator = D2DSimulator(FreeSpacePathLoss(self.carrier_freq_GHz), self.num_rbs)
         # self.bses, self.cues, self.due_txs, self.due_rxs = self._create_devices()
         self.bses, self.cues, self.due_pairs = self._create_devices()
 
@@ -96,6 +100,25 @@ class D2DEnv(gym.Env):
 
     def reset(self):
         self.simulator.reset()
+        for device in self.simulator.devices.values():
+            if device.id in self.device_config:
+                pos = Position(*self.device_config[device.id]['position'])
+            elif device.id == 'bs00':
+                pos = Position(0, 0)
+            elif device.id in self.bses:
+                pos = get_random_position(self.cell_radius_m)
+            elif device.id in self.cues:
+                pos = get_random_position(self.cell_radius_m)
+            elif device.id in self.due_pairs:
+                pos = get_random_position(self.cell_radius_m)
+            else:
+                # due_tx_id = None
+                # for due_tx_id, due_rx_id in self.due_pairs.items():
+                #     if due_rx_id == device.id:
+                #         break
+                pos = get_random_position(self.cell_radius_m)
+            device.set_position(pos)
+
         obs = self._get_state()
         return obs
 
@@ -170,6 +193,10 @@ class D2DEnv(gym.Env):
     @property
     def due_max_tx_power_dBm(self) -> int:
         return self.env_config['due_max_tx_power_dBm']
+
+    @property
+    def carrier_freq_GHz(self) -> float:
+        return self.env_config['carrier_freq_GHz']
 
     @property
     def num_rbs(self) -> int:

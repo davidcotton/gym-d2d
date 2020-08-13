@@ -1,5 +1,3 @@
-from math import log10, pi
-
 from .conversion import dB_to_linear, dBm_to_W, linear_to_dB
 from .id import Id
 from .position import Position
@@ -13,7 +11,6 @@ THERMAL_NOISE_POWER_W = dBm_to_W(THERMAL_NOISE_POWER_dBm)
 
 DEFAULT_DEVICE_CONFIG = {
     'num_PRB': 1,
-    'carrier_freq_GHz': 2.1,
     'subcarrier_quantity': 12,
     'subcarrier_spacing_kHz': 30.0,
 }
@@ -68,10 +65,6 @@ class Device:
     @property
     def max_tx_power_dBm(self) -> int:
         return self.config['max_tx_power_dBm']
-
-    @property
-    def carrier_freq_GHz(self) -> float:
-        return self.config['carrier_freq_GHz']
 
     @property
     def antenna_height_m(self) -> float:
