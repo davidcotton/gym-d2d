@@ -1,4 +1,5 @@
 from collections import defaultdict
+from math import log2
 from typing import Any, Dict, Tuple
 
 from .action import Action
@@ -25,13 +26,14 @@ class D2DSimulator:
         self.channels.clear()
 
     def step(self, actions: Dict[Id, Action]) -> dict:
-        # create automated actions
+        # GENERATE COMMUNICATIONS
+        # automated traffic
         rb = 0
         for ids, traffic_model in self.traffic_models.items():
             channel = traffic_model.get_channel(rb)
             self.channels[(channel.tx.id, channel.rx.id)] = channel
             rb = (rb + 1) % self.num_rbs
-        # execute supplied actions
+        # supplied actions
         for due_id, action in actions.items():
             # self.channels[(action.tx_id, action.rx_id)] = Channel.from_action(action)
             tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]
@@ -39,17 +41,14 @@ class D2DSimulator:
 
         # CALCULATE SINR
         # group by RB
-        # rbs = defaultdict(list)
         rbs = defaultdict(set)
         for ids, channel in self.channels.items():
-            # rbs[channel.rb].append(ids)
             rbs[channel.rb].add(ids)
         sinrs_dB = {}
         for (tx_id, rx_id), channel in self.channels.items():
             tx, rx = self.devices[tx_id], self.devices[rx_id]
             tx_pwr_dBm = tx.eirp_dBm(channel.tx_pwr_dBm)
-            d = channel.distance
-            path_loss_dB = self.path_loss(tx, rx, d)
+            path_loss_dB = self.path_loss(tx, rx, channel.distance)
             rx_pwr_dBm = tx_pwr_dBm - path_loss_dB
 
             ix_channels = rbs[channel.rb].difference({(tx_id, rx_id)})
@@ -65,8 +64,20 @@ class D2DSimulator:
             ixnx_pwr_mW = sum_ix_pwr_mW + nx_pwr_mW
             sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(ixnx_pwr_mW)
 
+        # CALCULATE NETWORK CAPACITY
+        capacities = {}
+        b = 180000  # 1x 180kHz LTE RB
+        for (tx_id, rx_id), sinr_dB in sinrs_dB.items():
+            tx, rx = self.devices[tx_id], self.devices[rx_id]
+            # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
+            if sinr_dB > rx.rx_sensitivity_dBm:
+                capacities[tx_id] = b * log2(1 + dB_to_linear(sinr_dB))
+            else:
+                capacities[tx_id] = 0
+
         return {
             'sinrs': sinrs_dB,
+            'capacity': capacities,
         }
 
     def add_base_station(self, bs_id, config: dict) -> BaseStation:
