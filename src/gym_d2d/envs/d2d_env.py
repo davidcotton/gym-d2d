@@ -2,6 +2,10 @@ import gym
 from gym import spaces
 import numpy as np
 
+from .action import Action
+from .mode import Mode
+from .simulator import D2DSimulator
+
 
 DEFAULT_CUE_MAX_TX_POWER_DBM = 23
 DEFAULT_DUE_MAX_TX_POWER_DBM = DEFAULT_CUE_MAX_TX_POWER_DBM
@@ -30,6 +34,8 @@ class D2DEnv(gym.Env):
             'd2d_radius_m': DEFAULT_D2D_RADIUS_M,
         }, **env_config)
 
+        self.simulator = D2DSimulator(self.num_rbs)
+
         num_txs = self.num_cellular_users + self.num_d2d_pairs
         num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
         num_tx_obs = 5  # sinrs, tx_pwrs, rbs, tx_pos_x, tx_pos_y
@@ -41,10 +47,18 @@ class D2DEnv(gym.Env):
         self.action_space = spaces.Discrete(self.num_rbs * self.due_max_tx_power_dBm)
 
     def reset(self):
+        self.simulator.reset()
         obs = self._get_state()
         return obs
 
     def step(self, actions):
+        due_actions = {}
+        for due_id, action in actions.items():
+            rb = action // self.due_max_tx_power_dBm
+            tx_pwr = action % self.due_max_tx_power_dBm
+            # due_actions[due_id] = Action(due_id, rx_id, Mode.D2D, rb, tx_pwr)
+            due_actions[due_id] = Action(due_id, 'rx_id', Mode.D2D, rb, tx_pwr)
+
         obs = self._get_state()
         rewards = {}
         return obs, rewards, False, {}
