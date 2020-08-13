@@ -40,6 +40,18 @@ class D2DEnv(gym.Env):
         self.observation_space = spaces.Box(low=self.obs_min, high=self.obs_max, shape=self.obs_shape)
         self.action_space = spaces.Discrete(self.num_rbs * self.due_max_tx_power_dBm)
 
+    def reset(self):
+        obs = {}
+        return obs
+
+    def step(self, actions):
+        obs = {}
+        rewards = {}
+        return obs, rewards, False, {}
+
+    def render(self, mode='human'):
+        print('nothing yet')
+
     @property
     def cue_max_tx_power_dBm(self) -> int:
         return self.env_config['cue_max_tx_power_dBm']
