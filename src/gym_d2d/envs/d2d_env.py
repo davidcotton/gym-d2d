@@ -150,7 +150,6 @@ class D2DEnv(gym.Env):
             rbs = []
             positions = []
             for channel in self.simulator.channels.values():
-                foo = channel.tx.position.as_tuple()
                 positions.extend(list(channel.tx.position.as_tuple()))
                 tx_pwrs_dBm.append(channel.tx_pwr_dBm)
                 rbs.append(channel.rb)
