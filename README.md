@@ -67,7 +67,6 @@ The environment has the following configuration options:
 | cue_max_tx_power_dBm | The maximum CUE transmission power in dBm. This is a discrete value, from 0 to max. | Integer | 23 |
 | carrier_freq_GHz | The carrier frequency used, in GHz. | Float | 2.1 |
 | num_rbs | The number of available resource blocks. | Integer | 30 |
-| num_base_stations| The number of base stations. | Integer | 1 |
 | num_cellular_users | The number of cellular users. | Integer| 30 |
 | num_d2d_pairs | The number of D2D pairs | Integer | 12 |
 | cell_radius_m | The macro base station's cell radius in metres. This parameter controls the radius in which all other devices are contained. | Float | 250.0 |

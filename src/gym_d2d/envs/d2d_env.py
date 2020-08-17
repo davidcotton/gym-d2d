@@ -19,7 +19,7 @@ DEFAULT_CUE_MAX_TX_POWER_DBM = 23
 DEFAULT_DUE_MAX_TX_POWER_DBM = DEFAULT_CUE_MAX_TX_POWER_DBM
 DEFAULT_CARRIER_FREQ_GHZ = 2.1
 DEFAULT_NUM_RESOURCE_BLOCKS = 30
-DEFAULT_NUM_BASE_STATIONS = 1
+DEFAULT_NUM_SMALL_BASE_STATIONS = 0
 DEFAULT_NUM_CELLULAR_USERS = 30
 DEFAULT_NUM_D2D_PAIRS = 12
 DEFAULT_CELL_RADIUS_M = 250.0
@@ -37,7 +37,7 @@ class D2DEnv(gym.Env):
             'due_max_tx_power_dBm': DEFAULT_DUE_MAX_TX_POWER_DBM,
             'carrier_freq_GHz': DEFAULT_CARRIER_FREQ_GHZ,
             'num_rbs': DEFAULT_NUM_RESOURCE_BLOCKS,
-            'num_base_stations': DEFAULT_NUM_BASE_STATIONS,
+            'num_small_base_stations': DEFAULT_NUM_SMALL_BASE_STATIONS,
             'num_cellular_users': DEFAULT_NUM_CELLULAR_USERS,
             'num_d2d_pairs': DEFAULT_NUM_D2D_PAIRS,
             'cell_radius_m': DEFAULT_CELL_RADIUS_M,
@@ -46,7 +46,6 @@ class D2DEnv(gym.Env):
         self.device_config = self._load_device_config(env_config)
 
         self.simulator = D2DSimulator(FreeSpacePathLoss(self.carrier_freq_GHz), self.num_rbs)
-        # self.bses, self.cues, self.due_txs, self.due_rxs = self._create_devices()
         self.bses, self.cues, self.due_pairs = self._create_devices()
 
         num_txs = self.num_cellular_users + self.num_d2d_pairs
@@ -57,45 +56,44 @@ class D2DEnv(gym.Env):
         self.observation_space = spaces.Box(low=-self.cell_radius_m, high=self.cell_radius_m, shape=obs_shape)
         self.action_space = spaces.Discrete(self.num_rbs * self.due_max_tx_power_dBm)
 
-    def _create_devices(self):
-        # initialise base stations
-        bses = []
-        for i in range(self.num_base_stations):
-            bs_id = Id(f'bs{i:02d}')
-            config = self.device_config[bs_id]['config'] if bs_id in self.device_config else {}
-            bs = self.simulator.add_base_station(bs_id, config)
-            bses.append(bs_id)
+    def _create_devices(self) -> Tuple[list, list, dict]:
+        """Initialise small base stations, cellular UE & D2D UE pairs in the simulator as per the env config.
 
-        # initialise cellular UE
+        :returns: A tuple containing a list of base station, CUE & dict of DUE pair IDs created.
+        """
+        # create macro base station
+        macro_bs = self.simulator.add_base_station(Id('mbs'), {})
+        bses = [macro_bs]
+        # create small base stations
+        for i in range(self.num_small_base_stations):
+            sbs_id = Id(f'sbs{i:02d}')
+            config = self.device_config[sbs_id]['config'] if sbs_id in self.device_config else {}
+            self.simulator.add_base_station(sbs_id, config)
+            bses.append(sbs_id)
+
+        # create cellular UEs
         cues = []
+        default_cue_cfg = {'max_tx_power_dBm': self.cue_max_tx_power_dBm}
         for i in range(self.num_cellular_users):
             cue_id = Id(f'cue{i:02d}')
-            config = self.device_config[cue_id]['config'] if cue_id in self.device_config \
-                else {'max_tx_power_dBm': self.cue_max_tx_power_dBm}
+            config = self.device_config[cue_id]['config'] if cue_id in self.device_config else default_cue_cfg
             cue = self.simulator.add_ue(cue_id, config)
-            traffic_model = SimplexTrafficModel([cue, bs])
-            self.simulator.add_traffic_model(traffic_model)
             cues.append(cue_id)
+            traffic_model = SimplexTrafficModel([cue, macro_bs])
+            self.simulator.add_traffic_model(traffic_model)
 
-        # initialise D2D UE
-        due_txs, due_rxs = [], []
-        # due_pairs = []
+        # create D2D UEs
         due_pairs = {}
+        def_due_cfg = {'max_tx_power_dBm': self.due_max_tx_power_dBm}
         for i in range(0, (self.num_d2d_pairs * 2), 2):
             due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
-            due_tx_config = self.device_config[due_tx_id]['config'] if due_tx_id in self.device_config \
-                else {'max_tx_power_dBm': self.due_max_tx_power_dBm}
+            due_tx_config = self.device_config[due_tx_id]['config'] if due_tx_id in self.device_config else def_due_cfg
             self.simulator.add_ue(due_tx_id, due_tx_config)
-            due_txs.append(due_tx_id)
 
-            due_rx_config = self.device_config[due_rx_id]['config'] if due_rx_id in self.device_config \
-                else {'max_tx_power_dBm': self.due_max_tx_power_dBm}
+            due_rx_config = self.device_config[due_rx_id]['config'] if due_rx_id in self.device_config else def_due_cfg
             self.simulator.add_ue(due_rx_id, due_rx_config)
-            due_rxs.append(due_rx_id)
-            # due_pairs.append((due_tx_id, due_rx_id))
             due_pairs[due_tx_id] = due_rx_id
 
-        # return bses, cues, due_txs, due_rxs
         return bses, cues, due_pairs
 
     def reset(self):
@@ -203,8 +201,8 @@ class D2DEnv(gym.Env):
         return self.env_config['num_rbs']
 
     @property
-    def num_base_stations(self) -> int:
-        return self.env_config['num_base_stations']
+    def num_small_base_stations(self) -> int:
+        return self.env_config['num_small_base_stations']
 
     @property
     def num_cellular_users(self) -> int:

@@ -1,6 +1,6 @@
 from collections import defaultdict
 from math import log2
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Union
 
 from .action import Action
 from .channel import Channel
@@ -95,13 +95,15 @@ class D2DSimulator:
                 capacities[tx_id] = 0
         return capacities
 
-    def add_base_station(self, bs_id, config: dict) -> BaseStation:
+    def add_base_station(self, bs_id: Union[Id, str], config: dict) -> BaseStation:
+        bs_id = bs_id if isinstance(bs_id, Id) else Id(bs_id)
         bs = BaseStation(bs_id, config)
         self.base_stations[bs_id] = bs
         self.devices[bs_id] = bs
         return bs
 
-    def add_ue(self, ue_id, config: dict) -> UserEquipment:
+    def add_ue(self, ue_id: Union[Id, str], config: dict) -> UserEquipment:
+        ue_id = ue_id if isinstance(ue_id, Id) else Id(ue_id)
         ue = UserEquipment(ue_id, config)
         self.ues[ue_id] = ue
         self.devices[ue_id] = ue
