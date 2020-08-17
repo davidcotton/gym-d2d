@@ -1,13 +1,18 @@
+from abc import ABC, abstractmethod
 from math import log10, pi
 
 from .device import Device
 
 
-class PathLoss:
+SPEED_OF_LIGHT = 299792458  # m/s
+
+
+class PathLoss(ABC):
     def __init__(self, carrier_freq_GHz: float) -> None:
         super().__init__()
         self.carrier_freq_GHz: float = carrier_freq_GHz
 
+    @abstractmethod
     def __call__(self, tx: Device, rx: Device, d: float) -> float:
         """Calculate the path loss between communicating devices.
 
@@ -16,7 +21,7 @@ class PathLoss:
         :param d: The transmission distance in metres.
         :return: The free space path loss in dB.
         """
-        raise NotImplementedError
+        pass
 
 
 def calc_fspl_constant_dB(carrier_freq_GHz: float) -> float:
@@ -29,7 +34,7 @@ def calc_fspl_constant_dB(carrier_freq_GHz: float) -> float:
     :param carrier_freq_GHz: The carrier frequencies in Ghz.
     :return: The free space path loss constant in dB.
     """
-    return 20 * log10(carrier_freq_GHz * 1e9) + 20 * log10((4 * pi) / 299792458)
+    return 20 * log10(carrier_freq_GHz * 1e9) + 20 * log10((4 * pi) / SPEED_OF_LIGHT)
 
 
 class FreeSpacePathLoss(PathLoss):
