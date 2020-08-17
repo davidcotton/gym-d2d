@@ -116,6 +116,11 @@ class BaseStation(Device):
     def eirp_dBm(self, tx_pwr_dBm: float) -> float:
         return super().eirp_dBm(tx_pwr_dBm) - self.cable_loss_dB + self.masthead_amplifier_gain_dB
 
+    def rx_signal_level_dBm(self, eirp_dBm: float, path_loss_dB: float) -> float:
+        return super().rx_signal_level_dBm(eirp_dBm, path_loss_dB) \
+               - self.cable_loss_dB \
+               + self.masthead_amplifier_gain_dB
+
     @property
     def cable_loss_dB(self) -> float:
         return self.config['cable_loss_dB']
@@ -123,6 +128,9 @@ class BaseStation(Device):
     @property
     def masthead_amplifier_gain_dB(self) -> float:
         return self.config['masthead_amplifier_gain_dB']
+
+    def __repr__(self) -> str:
+        return f'<BS:{self.id}>'
 
 
 class UserEquipment(Device):
@@ -132,6 +140,9 @@ class UserEquipment(Device):
     def eirp_dBm(self, tx_pwr_dBm: float) -> float:
         return super().eirp_dBm(tx_pwr_dBm) - self.body_loss_dB
 
+    def rx_signal_level_dBm(self, eirp_dBm: float, path_loss_dB: float) -> float:
+        return super().rx_signal_level_dBm(eirp_dBm, path_loss_dB) - self.body_loss_dB
+
     @property
     def control_channel_overhead_dB(self) -> float:
         return self.config['control_channel_overhead_dB']
@@ -139,3 +150,8 @@ class UserEquipment(Device):
     @property
     def body_loss_dB(self) -> float:
         return self.config['body_loss_dB']
+
+    def __repr__(self) -> str:
+        return f'<UE:{self.id}>'
+
+

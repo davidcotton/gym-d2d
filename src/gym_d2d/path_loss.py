@@ -13,12 +13,11 @@ class PathLoss(ABC):
         self.carrier_freq_GHz: float = carrier_freq_GHz
 
     @abstractmethod
-    def __call__(self, tx: Device, rx: Device, d: float) -> float:
-        """Calculate the path loss between communicating devices.
+    def __call__(self, tx: Device, rx: Device) -> float:
+        """Calculate the path loss between a transmitter and a receiver.
 
         :param tx: The transmitting device.
         :param rx: The receiving device.
-        :param d: The transmission distance in metres.
         :return: The free space path loss in dB.
         """
         pass
@@ -42,22 +41,19 @@ class FreeSpacePathLoss(PathLoss):
         super().__init__(carrier_freq_GHz)
         self.fspl_constant_dB = calc_fspl_constant_dB(carrier_freq_GHz)
 
-    def __call__(self, tx: Device, rx: Device, d: float) -> float:
+    def __call__(self, tx: Device, rx: Device) -> float:
         """Calculate the loss of signal strength in free space.
 
-        FSPL = 20log10(d) + 20log10(f) + 20log10(4pi/c) - G_tx - G_rx
+        FSPL = 20log10(d) + 20log10(f) + 20log10(4pi/c)
 
         Where:
             d: distance in metres
             f: the carrier frequency in Hz
             c: speed of light (m/s)
-            G_tx: transmitting antenna gain
-            G_rx: receiving antenna gain
 
         :param tx: The transmitting device.
         :param rx: The receiving device.
-        :param d: The transmission distance in metres.
         :return: The free space path loss in dB.
         """
 
-        return 20 * log10(d) + self.fspl_constant_dB - tx.tx_antenna_gain_dBi - rx.rx_antenna_gain_dBi
+        return 20 * log10(tx.position.distance(rx.position)) + self.fspl_constant_dB

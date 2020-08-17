@@ -65,18 +65,18 @@ class D2DSimulator:
         sinrs_dB = {}
         for (tx_id, rx_id), channel in self.channels.items():
             tx, rx = self.devices[tx_id], self.devices[rx_id]
-            tx_pwr_dBm = tx.eirp_dBm(channel.tx_pwr_dBm)
-            path_loss_dB = self.path_loss(tx, rx, channel.distance)
-            rx_pwr_dBm = tx_pwr_dBm - path_loss_dB
+            tx_eirp_dBm = tx.eirp_dBm(channel.tx_pwr_dBm)
+            path_loss_dB = self.path_loss(tx, rx)
+            rx_pwr_dBm = rx.rx_signal_level_dBm(tx_eirp_dBm, path_loss_dB)
 
             ix_channels = rbs[channel.rb].difference({(tx_id, rx_id)})
             sum_ix_pwr_mW = 0
             for ix_tx_id, ix_rx_id in ix_channels:
-                ix_tx, ix_rx = self.devices[ix_tx_id], self.devices[ix_rx_id]
+                ix_tx = self.devices[ix_tx_id]
                 ix_channel = self.channels[(ix_tx_id, ix_rx_id)]
-                ix_tx_pwr_dBm = ix_tx.eirp_dBm(ix_channel.tx_pwr_dBm)
-                ix_path_loss_dB = self.path_loss(ix_tx, ix_rx, channel.distance)
-                sum_ix_pwr_mW += dB_to_linear(ix_tx_pwr_dBm - ix_path_loss_dB)
+                ix_eirp_dBm = ix_tx.eirp_dBm(ix_channel.tx_pwr_dBm)
+                ix_path_loss_dB = self.path_loss(ix_tx, rx)
+                sum_ix_pwr_mW += dB_to_linear(ix_eirp_dBm - ix_path_loss_dB)
 
             nx_pwr_mW = dB_to_linear(tx.thermal_noise_dBm)
             ixnx_pwr_mW = sum_ix_pwr_mW + nx_pwr_mW
