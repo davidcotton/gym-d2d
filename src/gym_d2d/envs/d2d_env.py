@@ -16,7 +16,7 @@ from .traffic_model import SimplexTrafficModel
 
 
 DEFAULT_CUE_MAX_TX_POWER_DBM = 23
-DEFAULT_DUE_MAX_TX_POWER_DBM = DEFAULT_CUE_MAX_TX_POWER_DBM
+DEFAULT_DUE_MAX_TX_POWER_DBM = 23
 DEFAULT_CARRIER_FREQ_GHZ = 2.1
 DEFAULT_NUM_RESOURCE_BLOCKS = 30
 DEFAULT_NUM_SMALL_BASE_STATIONS = 0
@@ -24,6 +24,7 @@ DEFAULT_NUM_CELLULAR_USERS = 30
 DEFAULT_NUM_D2D_PAIRS = 12
 DEFAULT_CELL_RADIUS_M = 250.0
 DEFAULT_D2D_RADIUS_M = 20.0
+MACRO_BASE_STATION_ID = 'mbs'
 
 
 class D2DEnv(gym.Env):
@@ -47,6 +48,7 @@ class D2DEnv(gym.Env):
 
         self.simulator = D2DSimulator(FreeSpacePathLoss(self.carrier_freq_GHz), self.num_rbs)
         self.bses, self.cues, self.due_pairs = self._create_devices()
+        self.due_pairs_inv = {v: k for k, v in self.due_pairs.items()}
 
         num_txs = self.num_cellular_users + self.num_d2d_pairs
         num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
@@ -56,13 +58,13 @@ class D2DEnv(gym.Env):
         self.observation_space = spaces.Box(low=-self.cell_radius_m, high=self.cell_radius_m, shape=obs_shape)
         self.action_space = spaces.Discrete(self.num_rbs * self.due_max_tx_power_dBm)
 
-    def _create_devices(self) -> Tuple[list, list, dict]:
+    def _create_devices(self) -> Tuple[List[Id], List[Id], Dict[Id, Id]]:
         """Initialise small base stations, cellular UE & D2D UE pairs in the simulator as per the env config.
 
-        :returns: A tuple containing a list of base station, CUE & dict of DUE pair IDs created.
+        :returns: A tuple containing a list of base station, CUE & a dict of DUE pair IDs created.
         """
         # create macro base station
-        macro_bs = self.simulator.add_base_station(Id('mbs'), {})
+        macro_bs = self.simulator.add_base_station(Id(MACRO_BASE_STATION_ID), {})
         bses = [macro_bs]
         # create small base stations
         for i in range(self.num_small_base_stations):
@@ -98,23 +100,18 @@ class D2DEnv(gym.Env):
 
     def reset(self):
         for device in self.simulator.devices.values():
-            if device.id in self.device_config:
+            if device.id == MACRO_BASE_STATION_ID:
+                pos = Position(0, 0)  # assume MBS fixed at (0,0) and everything else builds around it
+            elif device.id in self.device_config:
                 pos = Position(*self.device_config[device.id]['position'])
-            elif device.id == 'bs00':
-                pos = Position(0, 0)
-            elif device.id in self.bses:
+            elif any(device.id in d for d in [self.bses, self.cues, self.due_pairs]):
                 pos = get_random_position(self.cell_radius_m)
-            elif device.id in self.cues:
-                pos = get_random_position(self.cell_radius_m)
-            elif device.id in self.due_pairs:
-                pos = get_random_position(self.cell_radius_m)
-            else:
-                # pos = get_random_position(self.cell_radius_m)
-                for due_tx_id, due_rx_id in self.due_pairs.items():
-                    if due_rx_id == device.id:
-                        break
+            elif device.id in self.due_pairs_inv:
+                due_tx_id = self.due_pairs_inv[device.id]
                 due_tx = self.simulator.devices[due_tx_id]
                 pos = get_random_position_nearby(self.cell_radius_m, due_tx.position, self.d2d_radius_m)
+            else:
+                raise ValueError(f'Invalid configuration for device "{device.id}".')
             device.set_position(pos)
 
         random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
