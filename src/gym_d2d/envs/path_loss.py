@@ -4,6 +4,10 @@ from .device import Device
 
 
 class PathLoss:
+    def __init__(self, carrier_freq_GHz: float) -> None:
+        super().__init__()
+        self.carrier_freq_GHz: float = carrier_freq_GHz
+
     def __call__(self, tx: Device, rx: Device, d: float) -> float:
         """Calculate the path loss between communicating devices.
 
@@ -30,7 +34,7 @@ def calc_fspl_constant_dB(carrier_freq_GHz: float) -> float:
 
 class FreeSpacePathLoss(PathLoss):
     def __init__(self, carrier_freq_GHz: float) -> None:
-        super().__init__()
+        super().__init__(carrier_freq_GHz)
         self.fspl_constant_dB = calc_fspl_constant_dB(carrier_freq_GHz)
 
     def __call__(self, tx: Device, rx: Device, d: float) -> float:

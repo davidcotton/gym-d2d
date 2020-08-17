@@ -63,15 +63,16 @@ The environment has the following configuration options:
 
 | Parameter | Description | Datatype | Default Value |
 |-----------|-------------|----------|---------------|
-| due_max_tx_power_dBm | The maximum DUE transmission power in dBm. This is a discrete value, from 0 to max. | Integer | 23 |
-| cue_max_tx_power_dBm | The maximum CUE transmission power in dBm. This is a discrete value, from 0 to max. | Integer | 23 |
-| carrier_freq_GHz | The carrier frequency used, in GHz. | Float | 2.1 |
-| num_rbs | The number of available resource blocks. | Integer | 30 |
-| num_cellular_users | The number of cellular users. | Integer| 30 |
-| num_d2d_pairs | The number of D2D pairs | Integer | 12 |
-| cell_radius_m | The macro base station's cell radius in metres. This parameter controls the radius in which all other devices are contained. | Float | 250.0 |
-| d2d_radius_m  | The maximum distance between D2D pairs in metres. | Float| 20.0 |
-| device_config_file | A path to a device configuration JSON file | pathlib.Path | None (random device positions) |
+| num_rbs | The number of available resource blocks. | `int` | 30 |
+| num_cellular_users | The number of cellular users. | `int`| 30 |
+| num_d2d_pairs | The number of D2D pairs | `int` | 12 |
+| cell_radius_m | The macro base station's cell radius in metres. This parameter controls the radius in which all other devices are contained. | `float` | 250.0 |
+| d2d_radius_m  | The maximum distance between D2D pairs in metres. | `float` | 20.0 |
+| path_loss_model | The type of path loss model to use. | `gym_d2d.envs.PathLoss` | `gym_d2d.envs.FreeSpacePathLoss` |
+| carrier_freq_GHz | The carrier frequency used, in GHz. | `float` | 2.1 |
+| due_max_tx_power_dBm | The maximum DUE transmission power in dBm. This is a discrete value, from 0 to max. | `int` | 23 |
+| cue_max_tx_power_dBm | The maximum CUE transmission power in dBm. This is a discrete value, from 0 to max. | `int` | 23 |
+| device_config_file | A path to a device configuration JSON file | `pathlib.Path` | None (random device positions) |
 
 ### Device Configuration
 By default, each time the environment is `reset()`, each UE is randomly assigned a new position. 
