@@ -1,9 +1,8 @@
 from math import log10
 
 import gym
-import gym_d2d
-from gym_d2d.envs.device import Device
-from gym_d2d.envs.path_loss import PathLoss
+from gym_d2d.device import Device
+from gym_d2d.path_loss import PathLoss
 
 
 class FooPathLoss(PathLoss):

@@ -6,13 +6,13 @@ import gym
 from gym import spaces
 import numpy as np
 
-from .action import Action
-from .id import Id
-from .mode import Mode
-from .path_loss import PathLoss, FreeSpacePathLoss
-from .position import Position, get_random_position, get_random_position_nearby
-from .simulator import D2DSimulator
-from .traffic_model import SimplexTrafficModel
+from gym_d2d.action import Action
+from gym_d2d.id import Id
+from gym_d2d.mode import Mode
+from gym_d2d.path_loss import PathLoss, FreeSpacePathLoss
+from gym_d2d.position import Position, get_random_position, get_random_position_nearby
+from gym_d2d.simulator import D2DSimulator
+from gym_d2d.traffic_model import SimplexTrafficModel
 
 
 DEFAULT_NUM_RESOURCE_BLOCKS = 30

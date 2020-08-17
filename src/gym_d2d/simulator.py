@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple, Union
 
 from .action import Action
 from .channel import Channel
-from .conversion import dB_to_linear, dBm_to_W, linear_to_dB
+from .conversion import dB_to_linear, linear_to_dB
 from .device import Device, BaseStation, UserEquipment
 from .id import Id
 from .path_loss import PathLoss

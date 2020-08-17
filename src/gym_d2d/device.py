@@ -1,4 +1,4 @@
-from .conversion import dB_to_linear, dBm_to_W, linear_to_dB
+from .conversion import dB_to_linear, dBm_to_W
 from .id import Id
 from .position import Position
 from .utils import merge_dicts
