@@ -1,11 +1,16 @@
 # Device-to-Device (D2D) communication Gym environment
 An OpenAI Gym environment to simulate D2D cellular offload via underlaid networking.
-While Gym is designed for reinforcement learning, its easy to adapt to adapt to your optimisation algorithm of choice. 
+
+While Gym is designed for reinforcement learning, its easy to adapt  to your optimisation algorithm of choice. 
+
+This environment models a cellular offload scenario containing a single macro base station and multiple cellular (CUE) and D2D (DUE) user equipment. 
+Supports different (and custom) path loss and traffic models.
+In the future we aim to support multiple small base stations and different optimisation objectives, e.g. energy efficiency.
 
 
 ## Requirements
-- Python 3.7 or greater
-
+- Python 3.7 or greater (`dataclasses` & `__future__.annotations`)
+- OpenAI Gym 0.9.6 or greater (env_config)
 
 ## Installation
 Use pip to install the git repo
