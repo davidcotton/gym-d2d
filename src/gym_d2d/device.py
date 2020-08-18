@@ -49,7 +49,7 @@ class Device:
         self.position: Position = Position(0, 0)
 
     def eirp_dBm(self, tx_pwr_dBm: float) -> float:
-        """Effective Isotropically Radiated Power
+        """Calculate the Effective Isotropically Radiated Power (EIRP).
 
         How much power (in dBm) the device radiates when considering factors such as antenna gain.
 
@@ -60,6 +60,12 @@ class Device:
         return tx_pwr_dBm + self.tx_antenna_gain_dBi - self.ix_margin_dB
 
     def rx_signal_level_dBm(self, eirp_dBm: float, path_loss_dB: float) -> float:
+        """Calculate the received signal strength.
+
+        :param eirp_dBm: The transmitted EIRP in dBm.
+        :param path_loss_dB: The path loss that has occurred in dB.
+        :returns: The received signal level in dBm.
+        """
         # - self._thermal_noise_dBm \
         # - self._noise_figure_dB \
         # - self._sinr_dB
