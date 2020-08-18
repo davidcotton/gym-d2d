@@ -59,7 +59,7 @@ class D2DEnv(gym.Env):
         # obs_shape = ((num_txs * num_all_tx_obs) + (num_rxs * num_all_rx_obs),)
         num_due_obs = 2  # x, y
         num_common_obs = 7  # tx_x, tx_y, rx_x, rx_y, tx_pwr, rb, sinr
-        obs_shape = (num_due_obs + (num_common_obs * (num_txs + num_rxs)),)
+        obs_shape = (num_due_obs + (num_common_obs * num_txs),)
         self.observation_space = spaces.Box(low=-self.cell_radius_m, high=self.cell_radius_m, shape=obs_shape)
         num_tx_pwr_actions = self.due_max_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
         self.action_space = spaces.Discrete(self.num_rbs * num_tx_pwr_actions)
