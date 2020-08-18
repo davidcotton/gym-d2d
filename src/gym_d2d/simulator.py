@@ -22,16 +22,8 @@ class D2DSimulator:
         self.channels: Dict[Tuple[Id, Id], Channel] = {}
         self.traffic_models: Dict[Tuple[Any], TrafficModel] = {}
 
-    def reset(self, actions: Dict[Id, Action]):
+    def reset(self):
         self.channels.clear()
-        self._generate_traffic(actions)
-        sinrs = self._calculate_sinrs()
-        capacities = self._calculate_network_capacity(sinrs)
-
-        return {
-            'sinrs': sinrs,
-            'capacity': capacities,
-        }
 
     def step(self, actions: Dict[Id, Action]) -> dict:
         self._generate_traffic(actions)

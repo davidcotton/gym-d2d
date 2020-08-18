@@ -58,7 +58,8 @@ class D2DEnv(gym.Env):
         num_rx_obs = 2  # rx_pos_x, rx_pos_y
         obs_shape = ((num_txs * num_tx_obs) + (num_rxs * num_rx_obs),)
         self.observation_space = spaces.Box(low=-self.cell_radius_m, high=self.cell_radius_m, shape=obs_shape)
-        self.action_space = spaces.Discrete(self.num_rbs * self.due_max_tx_power_dBm)
+        num_tx_pwr_actions = self.due_max_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
+        self.action_space = spaces.Discrete(self.num_rbs * num_tx_pwr_actions)
 
     def _create_devices(self) -> Tuple[List[Id], List[Id], Dict[Id, Id]]:
         """Initialise small base stations, cellular UE & D2D UE pairs in the simulator as per the env config.
@@ -116,9 +117,9 @@ class D2DEnv(gym.Env):
                 raise ValueError(f'Invalid configuration for device "{device.id}".')
             device.set_position(pos)
 
-        random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
-                          for due_id in self.due_pairs.keys()}
-        results = self.simulator.reset(random_actions)
+        self.simulator.reset()
+        # take a step with no D2D actions to generate initial SINRs
+        results = self.simulator.step({})
         obs = self._get_state(results['sinrs'])
         return obs
 
@@ -130,14 +131,14 @@ class D2DEnv(gym.Env):
         return obs, rewards, False, {}
 
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
-        rb = action_idx // self.due_max_tx_power_dBm
-        tx_pwr = action_idx % self.due_max_tx_power_dBm
+        rb = action_idx % self.num_rbs
+        tx_pwr = action_idx // self.num_rbs
         tx = self.simulator.ues[due_tx_id]
         rx = self.simulator.ues[self.due_pairs[due_tx_id]]
         return Action(tx.id, rx.id, Mode.D2D_UNDERLAY, rb, tx_pwr)
 
     def render(self, mode='human'):
-        obs = self._get_state()
+        obs = self._get_state({})  # @todo need to find a way to handle SINRs here
         print(obs)
 
     def _get_state(self, sinrs: Dict[Id, float]):
