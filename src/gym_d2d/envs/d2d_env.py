@@ -132,13 +132,24 @@ class D2DEnv(gym.Env):
         due_actions = {due_id: self._extract_action(due_id, action_idx) for due_id, action_idx in actions.items()}
         results = self.simulator.step(due_actions)
         obs = self._get_state(results['sinrs'])
-        rewards = {}
+        rewards = self._calculate_rewards(results)
         return obs, rewards, False, {}
 
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.num_rbs
         tx_pwr = action_idx // self.num_rbs
         return Action(due_tx_id, self.due_pairs[due_tx_id], Mode.D2D_UNDERLAY, rb, tx_pwr)
+
+    def _calculate_rewards(self, results: dict) -> dict:
+        # capacities = results['capacity']
+        sum_capacity = sum(c for c in results['capacity'].values())
+        sum_capacity_reduced = sum_capacity / 10000000
+        sum_capacity_reduced /= len(self.due_pairs)
+        rewards = {}
+        for tx_id, rx_id in self.due_pairs.items():
+            # rewards[tx_id] = capacities[tx_id] / 1000000
+            rewards[tx_id] = sum_capacity_reduced
+        return rewards
 
     def render(self, mode='human'):
         obs = self._get_state({})  # @todo need to find a way to handle SINRs here
