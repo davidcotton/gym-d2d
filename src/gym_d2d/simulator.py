@@ -78,9 +78,10 @@ class D2DSimulator:
                 ix_path_loss_dB = self.path_loss(ix_tx, rx)
                 sum_ix_pwr_mW += dB_to_linear(ix_eirp_dBm - ix_path_loss_dB)
 
-            nx_pwr_mW = dB_to_linear(tx.thermal_noise_dBm)
-            ixnx_pwr_mW = sum_ix_pwr_mW + nx_pwr_mW
-            sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(ixnx_pwr_mW)
+            # noise_mW = dB_to_linear(rx.thermal_noise_dBm)  # @todo this can be memoized
+            # ix_and_noise_mW = sum_ix_pwr_mW + noise_mW
+            # sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(ix_and_noise_mW)
+            sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm))
         return sinrs_dB
 
     def _calculate_network_capacity(self, sinrs: Dict[Tuple[Id, Id], float]) -> Dict[Id, float]:
