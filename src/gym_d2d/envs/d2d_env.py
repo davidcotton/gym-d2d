@@ -54,9 +54,12 @@ class D2DEnv(gym.Env):
 
         num_txs = self.num_cellular_users + self.num_d2d_pairs
         num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
-        num_tx_obs = 5  # sinrs, tx_pwrs, rbs, tx_pos_x, tx_pos_y
-        num_rx_obs = 2  # rx_pos_x, rx_pos_y
-        obs_shape = ((num_txs * num_tx_obs) + (num_rxs * num_rx_obs),)
+        # num_all_tx_obs = 5  # sinrs, tx_pwrs, rbs, xys
+        # num_all_rx_obs = 2  # xys
+        # obs_shape = ((num_txs * num_all_tx_obs) + (num_rxs * num_all_rx_obs),)
+        num_due_obs = 2  # x, y
+        num_common_obs = 7  # tx_x, tx_y, rx_x, rx_y, tx_pwr, rb, sinr
+        obs_shape = (num_due_obs + (num_common_obs * (num_txs + num_rxs)),)
         self.observation_space = spaces.Box(low=-self.cell_radius_m, high=self.cell_radius_m, shape=obs_shape)
         num_tx_pwr_actions = self.due_max_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
         self.action_space = spaces.Discrete(self.num_rbs * num_tx_pwr_actions)
@@ -118,8 +121,10 @@ class D2DEnv(gym.Env):
             device.set_position(pos)
 
         self.simulator.reset()
-        # take a step with no D2D actions to generate initial SINRs
-        results = self.simulator.step({})
+        # take a step with random D2D actions to generate initial SINRs
+        random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
+                          for due_id in self.due_pairs.keys()}
+        results = self.simulator.step(random_actions)
         obs = self._get_state(results['sinrs'])
         return obs
 
@@ -133,32 +138,43 @@ class D2DEnv(gym.Env):
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.num_rbs
         tx_pwr = action_idx // self.num_rbs
-        tx = self.simulator.ues[due_tx_id]
-        rx = self.simulator.ues[self.due_pairs[due_tx_id]]
-        return Action(tx.id, rx.id, Mode.D2D_UNDERLAY, rb, tx_pwr)
+        return Action(due_tx_id, self.due_pairs[due_tx_id], Mode.D2D_UNDERLAY, rb, tx_pwr)
 
     def render(self, mode='human'):
         obs = self._get_state({})  # @todo need to find a way to handle SINRs here
         print(obs)
 
-    def _get_state(self, sinrs: Dict[Id, float]):
+    def _get_state(self, sinrs: Dict[Tuple[Id, Id], float]):
+        # tx_pwrs_dBm = []
+        # rbs = []
+        # positions = []
+        # for channel in self.simulator.channels.values():
+        #     tx_pwrs_dBm.append(channel.tx_pwr_dBm)
+        #     rbs.append(channel.rb)
+        #     positions.extend(list(channel.tx.position.as_tuple()))
+        # for channel in self.simulator.channels.values():
+        #     positions.extend(list(channel.rx.position.as_tuple()))
+        # common_obs = []
+        # common_obs.extend(list(sinrs.values()))
+        # common_obs.extend(tx_pwrs_dBm)
+        # common_obs.extend(rbs)
+        # common_obs.extend(positions)
+
+        common_obs = []
+        for channel in self.simulator.channels.values():
+            common_obs.extend(list(channel.tx.position.as_tuple()))
+            common_obs.extend(list(channel.rx.position.as_tuple()))
+            common_obs.append(channel.tx_pwr_dBm)
+            common_obs.append(channel.rb)
+            common_obs.append(sinrs[(channel.tx.id, channel.rx.id)])
+
         obs_dict = {}
         for due_id in self.due_pairs.keys():
-            tx_pwrs_dBm = []
-            rbs = []
-            positions = []
-            for channel in self.simulator.channels.values():
-                positions.extend(list(channel.tx.position.as_tuple()))
-                tx_pwrs_dBm.append(channel.tx_pwr_dBm)
-                rbs.append(channel.rb)
-            for channel in self.simulator.channels.values():
-                positions.extend(list(channel.rx.position.as_tuple()))
-
-            obs = list(sinrs.values())
-            obs.extend(tx_pwrs_dBm)
-            obs.extend(rbs)
-            obs.extend(positions)
-            obs_dict[due_id] = np.array(obs)
+            due_pos = list(self.simulator.devices[due_id].position.as_tuple())
+            due_obs = []
+            due_obs.extend(due_pos)
+            due_obs.extend(common_obs)
+            obs_dict[due_id] = np.array(due_obs)
 
         return obs_dict
 
