@@ -144,7 +144,25 @@ class D2DEnv(gym.Env):
         results = self.simulator.step(due_actions)
         obs = self._get_state(results['sinrs'])
         rewards = self._calculate_rewards(results)
-        return obs, rewards, False, {}
+        info = {}
+        for due_id, action in due_actions.items():
+            info[due_id] = {
+                'rb': action.rb,
+                'tx_pwr': action.tx_pwr,
+                'sinr': results['sinrs'][(due_id, self.due_pairs[due_id])],
+                'capacity': results['capacity'][(due_id, self.due_pairs[due_id])],
+            }
+        sum_cue_sinr = 0
+        sum_cue_capacity = 0
+        for cue_id in self.cues:
+            sum_cue_sinr += results['sinrs'][(cue_id, MACRO_BASE_STATION_ID)]
+            sum_cue_capacity += results['capacity'][(cue_id, MACRO_BASE_STATION_ID)]
+        info['avg_cue'] = {
+            'sinr': sum_cue_sinr / len(self.cues),
+            'capacity': sum_cue_capacity / len(self.cues),
+        }
+
+        return obs, rewards, False, info
 
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.num_rbs
