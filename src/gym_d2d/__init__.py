@@ -1,13 +1,6 @@
 from gym.envs.registration import register
 
-# import gym
-#
-#
-# def register(id, entry_point):
-#     env_specs = gym.envs.registry.env_specs
-#     if id in env_specs.keys():
-#         return
-#     gym.register(id=id, entry_point=entry_point)
+from gym_d2d.utils import plot_devices
 
 
 register(
