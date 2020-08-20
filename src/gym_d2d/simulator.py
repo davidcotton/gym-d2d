@@ -78,12 +78,11 @@ class D2DSimulator:
 
     def _calculate_network_capacity(self, sinrs: Dict[Tuple[Id, Id], float]) -> Dict[Id, float]:
         capacities = {}
-        b = 180000  # 1x 180kHz LTE RB
         for (tx_id, rx_id), sinr_dB in sinrs.items():
             tx, rx = self.devices[tx_id], self.devices[rx_id]
             # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
             if sinr_dB > rx.rx_sensitivity_dBm:
-                capacities[tx_id] = b * log2(1 + dB_to_linear(sinr_dB))
+                capacities[tx_id] = tx.rb_bandwidth_kHz * log2(1 + dB_to_linear(sinr_dB))
             else:
                 capacities[tx_id] = 0
         return capacities

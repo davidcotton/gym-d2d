@@ -15,14 +15,16 @@ from gym_d2d.simulator import D2DSimulator
 from gym_d2d.traffic_model import SimplexTrafficModel
 
 
+DEFAULT_CARRIER_FREQ_GHZ = 2.1
+DEFAULT_NUM_SUBCARRIERS = 12
+DEFAULT_SUBCARRIER_SPACING_KHZ = 15
 DEFAULT_NUM_RESOURCE_BLOCKS = 30
+DEFAULT_PATH_LOSS_MODEL = FreeSpacePathLoss
 DEFAULT_NUM_SMALL_BASE_STATIONS = 0
 DEFAULT_NUM_CELLULAR_USERS = 30
 DEFAULT_NUM_D2D_PAIRS = 12
 DEFAULT_CELL_RADIUS_M = 250.0
 DEFAULT_D2D_RADIUS_M = 20.0
-DEFAULT_PATH_LOSS_MODEL = FreeSpacePathLoss
-DEFAULT_CARRIER_FREQ_GHZ = 2.1
 DEFAULT_CUE_MAX_TX_POWER_DBM = 23
 DEFAULT_DUE_MAX_TX_POWER_DBM = 23
 MACRO_BASE_STATION_ID = 'mbs'
@@ -35,14 +37,16 @@ class D2DEnv(gym.Env):
         super().__init__()
         env_config = env_config or {}
         self.env_config = dict({
+            'carrier_freq_GHz': DEFAULT_CARRIER_FREQ_GHZ,
+            'num_subcarriers': DEFAULT_NUM_SUBCARRIERS,
+            'subcarrier_spacing_kHz': DEFAULT_SUBCARRIER_SPACING_KHZ,
             'num_rbs': DEFAULT_NUM_RESOURCE_BLOCKS,
+            'path_loss_model': DEFAULT_PATH_LOSS_MODEL,
             'num_small_base_stations': DEFAULT_NUM_SMALL_BASE_STATIONS,
             'num_cellular_users': DEFAULT_NUM_CELLULAR_USERS,
             'num_d2d_pairs': DEFAULT_NUM_D2D_PAIRS,
             'cell_radius_m': DEFAULT_CELL_RADIUS_M,
             'd2d_radius_m': DEFAULT_D2D_RADIUS_M,
-            'path_loss_model': DEFAULT_PATH_LOSS_MODEL,
-            'carrier_freq_GHz': DEFAULT_CARRIER_FREQ_GHZ,
             'cue_max_tx_power_dBm': DEFAULT_CUE_MAX_TX_POWER_DBM,
             'due_max_tx_power_dBm': DEFAULT_DUE_MAX_TX_POWER_DBM,
         }, **env_config)
@@ -69,19 +73,25 @@ class D2DEnv(gym.Env):
 
         :returns: A tuple containing a list of base station, CUE & a dict of DUE pair IDs created.
         """
+
+        base_cfg = {
+            'num_subcarriers': self.num_subcarriers,
+            'subcarrier_spacing_kHz': self.subcarrier_spacing_kHz,
+        }
+
         # create macro base station
         macro_bs = self.simulator.add_base_station(Id(MACRO_BASE_STATION_ID), {})
         bses = [macro_bs]
         # create small base stations
         for i in range(self.num_small_base_stations):
             sbs_id = Id(f'sbs{i:02d}')
-            config = self.device_config[sbs_id]['config'] if sbs_id in self.device_config else {}
+            config = self.device_config[sbs_id]['config'] if sbs_id in self.device_config else base_cfg
             self.simulator.add_base_station(sbs_id, config)
             bses.append(sbs_id)
 
         # create cellular UEs
         cues = []
-        default_cue_cfg = {'max_tx_power_dBm': self.cue_max_tx_power_dBm}
+        default_cue_cfg = {**base_cfg, **{'max_tx_power_dBm': self.cue_max_tx_power_dBm}}
         for i in range(self.num_cellular_users):
             cue_id = Id(f'cue{i:02d}')
             config = self.device_config[cue_id]['config'] if cue_id in self.device_config else default_cue_cfg
@@ -92,7 +102,7 @@ class D2DEnv(gym.Env):
 
         # create D2D UEs
         due_pairs = {}
-        def_due_cfg = {'max_tx_power_dBm': self.due_max_tx_power_dBm}
+        def_due_cfg = {**base_cfg, **{'max_tx_power_dBm': self.due_max_tx_power_dBm}}
         for i in range(0, (self.num_d2d_pairs * 2), 2):
             due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
             due_tx_config = self.device_config[due_tx_id]['config'] if due_tx_id in self.device_config else def_due_cfg
@@ -212,8 +222,24 @@ class D2DEnv(gym.Env):
             return {}
 
     @property
+    def carrier_freq_GHz(self) -> float:
+        return float(self.env_config['carrier_freq_GHz'])
+
+    @property
+    def num_subcarriers(self) -> int:
+        return int(self.env_config['num_subcarriers'])
+
+    @property
+    def subcarrier_spacing_kHz(self) -> int:
+        return int(self.env_config['subcarrier_spacing_kHz'])
+
+    @property
     def num_rbs(self) -> int:
         return self.env_config['num_rbs']
+
+    @property
+    def path_loss_model(self) -> Type[PathLoss]:
+        return self.env_config['path_loss_model']
 
     @property
     def num_small_base_stations(self) -> int:
@@ -234,14 +260,6 @@ class D2DEnv(gym.Env):
     @property
     def d2d_radius_m(self) -> float:
         return self.env_config['d2d_radius_m']
-
-    @property
-    def path_loss_model(self) -> Type[PathLoss]:
-        return self.env_config['path_loss_model']
-
-    @property
-    def carrier_freq_GHz(self) -> float:
-        return self.env_config['carrier_freq_GHz']
 
     @property
     def cue_max_tx_power_dBm(self) -> int:

@@ -11,8 +11,8 @@ THERMAL_NOISE_POWER_W = dBm_to_W(THERMAL_NOISE_POWER_dBm)
 
 DEFAULT_DEVICE_CONFIG = {
     'num_PRB': 1,
-    'subcarrier_quantity': 12,
-    'subcarrier_spacing_kHz': 30.0,
+    'num_subcarriers': 12,
+    'subcarrier_spacing_kHz': 15.0,
 }
 DEFAULT_BASE_STATION_CONFIG = merge_dicts(dict(DEFAULT_DEVICE_CONFIG), {
     'max_tx_power_dBm': 46.0,
@@ -81,6 +81,18 @@ class Device:
 
     def set_position(self, pos: Position) -> None:
         self.position = pos
+
+    @property
+    def num_subcarriers(self) -> int:
+        return int(self.config['num_subcarriers'])
+
+    @property
+    def subcarrier_spacing_kHz(self) -> int:
+        return int(self.config['subcarrier_spacing_kHz'])
+
+    @property
+    def rb_bandwidth_kHz(self) -> int:
+        return self.num_subcarriers * self.subcarrier_spacing_kHz
 
     @property
     def max_tx_power_dBm(self) -> int:
