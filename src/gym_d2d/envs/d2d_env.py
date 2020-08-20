@@ -136,38 +136,39 @@ class D2DEnv(gym.Env):
         random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
                           for due_id in self.due_pairs.keys()}
         results = self.simulator.step(random_actions)
-        obs = self._get_state(results['sinrs'])
+        obs = self._get_state(results['sinrs_dB'])
         return obs
 
     def step(self, actions):
         due_actions = {due_id: self._extract_action(due_id, action_idx) for due_id, action_idx in actions.items()}
         results = self.simulator.step(due_actions)
-        obs = self._get_state(results['sinrs'])
+        obs = self._get_state(results['sinrs_dB'])
         rewards = self._calculate_rewards(results)
+
         info = {}
-        for due_id, action in due_actions.items():
-            info[due_id] = {
-                'rb': action.rb,
-                'tx_pwr': action.tx_pwr,
-                'sinr': results['sinrs'][(due_id, self.due_pairs[due_id])],
-                'capacity': results['capacity'][(due_id, self.due_pairs[due_id])],
-            }
         sum_cue_sinr = 0
         sum_cue_capacity = 0
         for cue_id in self.cues:
-            sum_cue_sinr += results['sinrs'][(cue_id, MACRO_BASE_STATION_ID)]
-            sum_cue_capacity += results['capacity'][(cue_id, MACRO_BASE_STATION_ID)]
-        info['avg_cue'] = {
-            'sinr': sum_cue_sinr / len(self.cues),
-            'capacity': sum_cue_capacity / len(self.cues),
-        }
+            sum_cue_sinr += results['sinrs_dB'][(cue_id, MACRO_BASE_STATION_ID)]
+            sum_cue_capacity += results['capacity_Mbps'][(cue_id, MACRO_BASE_STATION_ID)]
+        mean_cue_sinr = sum_cue_sinr / len(self.cues)
+        mean_cue_capacity = sum_cue_capacity / len(self.cues)
+        for due_id, action in due_actions.items():
+            info[due_id] = {
+                'rb': action.rb,
+                'tx_pwr_dBm': action.tx_pwr_dBm,
+                'sinr_dB': results['sinrs_dB'][(due_id, self.due_pairs[due_id])],
+                'capacity_Mbps': results['capacity_Mbps'][(due_id, self.due_pairs[due_id])],
+                'mean_cue_sinr_dB': mean_cue_sinr,
+                'mean_cue_capacity_Mbps': mean_cue_capacity,
+            }
 
         return obs, rewards, False, info
 
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.num_rbs
-        tx_pwr = action_idx // self.num_rbs
-        return Action(due_tx_id, self.due_pairs[due_tx_id], Mode.D2D_UNDERLAY, rb, tx_pwr)
+        tx_pwr_dBm = action_idx // self.num_rbs
+        return Action(due_tx_id, self.due_pairs[due_tx_id], Mode.D2D_UNDERLAY, rb, tx_pwr_dBm)
 
     def _calculate_rewards(self, results: dict) -> dict:
         # group by RB
@@ -185,12 +186,12 @@ class D2DEnv(gym.Env):
             for ix_tx_id, ix_rx_id in ix_channels:
                 if ix_tx_id in self.due_pairs:
                     continue
-                if results['capacity'][(ix_tx_id, ix_rx_id)] <= 0:
+                if results['capacity_Mbps'][(ix_tx_id, ix_rx_id)] <= 0:
                     brake = True
                     break
         else:
-            sum_capacity = sum(c for c in results['capacity'].values())
-            reward = sum_capacity / 1e7 / len(self.due_pairs)
+            sum_capacity = sum(c for c in results['capacity_Mbps'].values())
+            reward = sum_capacity / len(self.due_pairs)
 
         rewards = {}
         for tx_id, rx_id in self.due_pairs.items():

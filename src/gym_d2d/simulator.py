@@ -31,8 +31,8 @@ class D2DSimulator:
         capacities = self._calculate_network_capacity(sinrs)
 
         return {
-            'sinrs': sinrs,
-            'capacity': capacities,
+            'sinrs_dB': sinrs,
+            'capacity_Mbps': capacities,
         }
 
     def _generate_traffic(self, actions: Dict[Id, Action]) -> None:
@@ -46,7 +46,7 @@ class D2DSimulator:
         for due_id, action in actions.items():
             # self.channels[(action.tx_id, action.rx_id)] = Channel.from_action(action)
             tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]
-            self.channels[(tx.id, rx.id)] = Channel(tx, rx, action.mode, action.rb, action.tx_pwr)
+            self.channels[(tx.id, rx.id)] = Channel(tx, rx, action.mode, action.rb, action.tx_pwr_dBm)
 
     def _calculate_sinrs(self) -> Dict[Tuple[Id, Id], float]:
         # group by RB
@@ -82,7 +82,7 @@ class D2DSimulator:
             tx, rx = self.devices[tx_id], self.devices[rx_id]
             # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
             if sinr_dB > rx.rx_sensitivity_dBm:
-                capacities[(tx_id, rx_id)] = tx.rb_bandwidth_kHz * log2(1 + dB_to_linear(sinr_dB))
+                capacities[(tx_id, rx_id)] = tx.rb_bandwidth_kHz * log2(1 + dB_to_linear(sinr_dB)) / 1e6
             else:
                 capacities[(tx_id, rx_id)] = 0
         return capacities
