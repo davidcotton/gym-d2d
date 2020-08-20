@@ -76,15 +76,15 @@ class D2DSimulator:
             sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm))
         return sinrs_dB
 
-    def _calculate_network_capacity(self, sinrs: Dict[Tuple[Id, Id], float]) -> Dict[Id, float]:
+    def _calculate_network_capacity(self, sinrs: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         capacities = {}
         for (tx_id, rx_id), sinr_dB in sinrs.items():
             tx, rx = self.devices[tx_id], self.devices[rx_id]
             # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
             if sinr_dB > rx.rx_sensitivity_dBm:
-                capacities[tx_id] = tx.rb_bandwidth_kHz * log2(1 + dB_to_linear(sinr_dB))
+                capacities[(tx_id, rx_id)] = tx.rb_bandwidth_kHz * log2(1 + dB_to_linear(sinr_dB))
             else:
-                capacities[tx_id] = 0
+                capacities[(tx_id, rx_id)] = 0
         return capacities
 
     def add_base_station(self, bs_id: Union[Id, str], config: dict) -> BaseStation:

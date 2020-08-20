@@ -1,3 +1,4 @@
+from collections import defaultdict
 import json
 from pathlib import Path
 from typing import Dict, List, Tuple, Type
@@ -151,14 +152,31 @@ class D2DEnv(gym.Env):
         return Action(due_tx_id, self.due_pairs[due_tx_id], Mode.D2D_UNDERLAY, rb, tx_pwr)
 
     def _calculate_rewards(self, results: dict) -> dict:
-        # capacities = results['capacity']
-        sum_capacity = sum(c for c in results['capacity'].values())
-        sum_capacity_reduced = sum_capacity / 10000000
-        sum_capacity_reduced /= len(self.due_pairs)
+        # group by RB
+        rbs = defaultdict(set)
+        for ids, channel in self.simulator.channels.items():
+            rbs[channel.rb].add(ids)
+
+        reward = -1
+        brake = False
+        for tx_id, rx_id in self.due_pairs.items():
+            if brake:
+                break
+            rb = self.simulator.channels[(tx_id, rx_id)].rb
+            ix_channels = rbs[rb].difference({(tx_id, rx_id)})
+            for ix_tx_id, ix_rx_id in ix_channels:
+                if ix_tx_id in self.due_pairs:
+                    continue
+                if results['capacity'][(ix_tx_id, ix_rx_id)] <= 0:
+                    brake = True
+                    break
+        else:
+            sum_capacity = sum(c for c in results['capacity'].values())
+            reward = sum_capacity / 1e7 / len(self.due_pairs)
+
         rewards = {}
         for tx_id, rx_id in self.due_pairs.items():
-            # rewards[tx_id] = capacities[tx_id] / 1000000
-            rewards[tx_id] = sum_capacity_reduced
+            rewards[tx_id] = reward
         return rewards
 
     def render(self, mode='human'):
