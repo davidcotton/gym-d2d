@@ -146,24 +146,25 @@ class D2DEnv(gym.Env):
         rewards = self._calculate_rewards(results)
 
         info = {}
-        sum_cue_sinr = 0
-        sum_cue_capacity = 0
+        sum_cue_sinr, sum_cue_capacity = 0, 0
         for cue_id in self.cues:
             sum_cue_sinr += results['sinrs_dB'][(cue_id, MACRO_BASE_STATION_ID)]
             sum_cue_capacity += results['capacity_Mbps'][(cue_id, MACRO_BASE_STATION_ID)]
-        mean_cue_sinr = sum_cue_sinr / len(self.cues)
-        mean_cue_capacity = sum_cue_capacity / len(self.cues)
+        info['__env__'] = {
+            'mean_cue_sinr_dB': sum_cue_sinr / len(self.cues),
+            'mean_cue_capacity_Mbps': sum_cue_capacity / len(self.cues),
+            'system_capacity_Mbps': sum(v for v in results['capacity_Mbps'].values()),
+        }
         for due_id, action in due_actions.items():
+            due_pair = (due_id, self.due_pairs[due_id])
             info[due_id] = {
                 'rb': action.rb,
                 'tx_pwr_dBm': action.tx_pwr_dBm,
-                'sinr_dB': results['sinrs_dB'][(due_id, self.due_pairs[due_id])],
-                'capacity_Mbps': results['capacity_Mbps'][(due_id, self.due_pairs[due_id])],
-                'mean_cue_sinr_dB': mean_cue_sinr,
-                'mean_cue_capacity_Mbps': mean_cue_capacity,
+                'due_sinr_dB': results['sinrs_dB'][due_pair],
+                'due_capacity_Mbps': results['capacity_Mbps'][due_pair],
             }
 
-        return obs, rewards, False, info
+        return obs, rewards, {'__all__': False}, info
 
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.num_rbs
