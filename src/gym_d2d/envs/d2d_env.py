@@ -160,7 +160,7 @@ class D2DEnv(gym.Env):
             else:
                 num_cues += 1
                 sum_cue_sinr += sinr_dB
-                sum_cue_capacity += sum_cue_capacity
+                sum_cue_capacity += capacity
         info['__env__'] = {
             'mean_cue_sinr_dB': sum_cue_sinr / num_cues,
             'cue_capacity_Mbps': sum_cue_capacity,
