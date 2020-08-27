@@ -37,7 +37,7 @@ DEFAULT_UE_CONFIG = merge_dicts(dict(DEFAULT_DEVICE_CONFIG), {
     'sinr_dB': -10.0,
     'ix_margin_dB': 3.0,  # accounts for the increase in noise from surrounding cells
     'control_channel_overhead_dB': 1.0,
-    'body_loss_dB': 3.0,
+    'body_loss_dB': 3.0,  # loss from user's body blocking reception
 })
 
 
