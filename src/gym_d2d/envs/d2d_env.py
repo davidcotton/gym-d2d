@@ -9,7 +9,7 @@ import numpy as np
 
 from gym_d2d.action import Action
 from gym_d2d.id import Id
-from gym_d2d.mode import Mode
+from gym_d2d.link_type import LinkType
 from gym_d2d.path_loss import PathLoss, FreeSpacePathLoss
 from gym_d2d.position import Position, get_random_position, get_random_position_nearby
 from gym_d2d.simulator import D2DSimulator
@@ -172,7 +172,7 @@ class D2DEnv(gym.Env):
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.num_rbs
         tx_pwr_dBm = action_idx // self.num_rbs
-        return Action(due_tx_id, self.due_pairs[due_tx_id], Mode.D2D_UNDERLAY, rb, tx_pwr_dBm)
+        return Action(due_tx_id, self.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def _calculate_rewards(self, results: dict) -> dict:
         # group by RB
