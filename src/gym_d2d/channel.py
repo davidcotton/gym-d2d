@@ -1,6 +1,3 @@
-from __future__ import annotations
-
-# from .action import Action
 from .device import Device
 from .link_type import LinkType
 
@@ -14,6 +11,5 @@ class Channel:
         self.rb: int = rb
         self.tx_pwr_dBm: float = tx_pwr_dBm
 
-    # @staticmethod
-    # def from_action(action: Action) -> Channel:
-    #     return Channel(*action)
+    def __repr__(self) -> str:
+        return f'<{self.tx.id}>:<{self.rx.id}>'

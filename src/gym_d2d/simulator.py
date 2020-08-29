@@ -43,29 +43,25 @@ class D2DSimulator:
             self.channels[(channel.tx.id, channel.rx.id)] = channel
             rb = (rb + 1) % self.num_rbs
         # supplied actions
-        for due_id, action in actions.items():
-            # self.channels[(action.tx_id, action.rx_id)] = Channel.from_action(action)
+        for action in actions.values():
             tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]
             self.channels[(tx.id, rx.id)] = Channel(tx, rx, action.mode, action.rb, action.tx_pwr_dBm)
 
     def _calculate_sinrs(self) -> Dict[Tuple[Id, Id], float]:
-        # group by RB
+        # group channels by RB
         rbs = defaultdict(set)
-        for ids, channel in self.channels.items():
-            rbs[channel.rb].add(ids)
+        for channel in self.channels.values():
+            rbs[channel.rb].add(channel)
 
         sinrs_dB = {}
         for (tx_id, rx_id), channel in self.channels.items():
-            tx, rx = self.devices[tx_id], self.devices[rx_id]
-            tx_eirp_dBm = tx.eirp_dBm(channel.tx_pwr_dBm)
-            path_loss_dB = self.path_loss(tx, rx)
-            rx_pwr_dBm = rx.rx_signal_level_dBm(tx_eirp_dBm, path_loss_dB)
+            tx, rx = channel.tx, channel.rx
+            rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(channel.tx_pwr_dBm), self.path_loss(tx, rx))
 
-            ix_channels = rbs[channel.rb].difference({(tx_id, rx_id)})
-            sum_ix_pwr_mW = 0
-            for ix_tx_id, ix_rx_id in ix_channels:
-                ix_tx = self.devices[ix_tx_id]
-                ix_channel = self.channels[(ix_tx_id, ix_rx_id)]
+            ix_channels = rbs[channel.rb].difference({channel})
+            sum_ix_pwr_mW = 0.0
+            for ix_channel in ix_channels:
+                ix_tx = ix_channel.tx
                 ix_eirp_dBm = ix_tx.eirp_dBm(ix_channel.tx_pwr_dBm)
                 ix_path_loss_dB = self.path_loss(ix_tx, rx)
                 sum_ix_pwr_mW += dB_to_linear(ix_eirp_dBm - ix_path_loss_dB)
