@@ -12,9 +12,10 @@ from .traffic_model import TrafficModel
 
 
 class D2DSimulator:
-    def __init__(self, path_loss: PathLoss, num_rbs: int) -> None:
+    def __init__(self, path_loss: PathLoss, channel_bandwidth_MHz: float, num_rbs: int) -> None:
         super().__init__()
         self.path_loss: PathLoss = path_loss
+        self.channel_bandwidth_MHz: float = channel_bandwidth_MHz
         self.num_rbs: int = num_rbs
         self.devices: Dict[Id, Device] = {}
         self.base_stations: Dict[Id, BaseStation] = {}
@@ -27,11 +28,12 @@ class D2DSimulator:
 
     def step(self, actions: Dict[Id, Action]) -> dict:
         self._generate_traffic(actions)
-        sinrs = self._calculate_sinrs()
-        capacities = self._calculate_network_capacity(sinrs)
+        sinrs_dB, snrs_dB = self._calculate_sinrs()
+        capacities = self._calculate_network_capacity(sinrs_dB)
 
         return {
-            'sinrs_dB': sinrs,
+            'SINRs_dB': sinrs_dB,
+            'SNRs_dB': snrs_dB,
             'capacity_Mbps': capacities,
         }
 
@@ -47,13 +49,16 @@ class D2DSimulator:
             tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]
             self.channels[(tx.id, rx.id)] = Channel(tx, rx, action.mode, action.rb, action.tx_pwr_dBm)
 
-    def _calculate_sinrs(self) -> Dict[Tuple[Id, Id], float]:
+    # def _calculate_sinrs(self) -> Dict[Tuple[Id, Id], float]:
+    def _calculate_sinrs(self):
         # group channels by RB
         rbs = defaultdict(set)
         for channel in self.channels.values():
             rbs[channel.rb].add(channel)
 
         sinrs_dB = {}
+        # sinrs_mW = {}
+        snrs_dB = {}
         for (tx_id, rx_id), channel in self.channels.items():
             tx, rx = channel.tx, channel.rx
             rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(channel.tx_pwr_dBm), self.path_loss(tx, rx))
@@ -70,15 +75,33 @@ class D2DSimulator:
             # ix_and_noise_mW = sum_ix_pwr_mW + noise_mW
             # sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(ix_and_noise_mW)
             sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm))
-        return sinrs_dB
+            # sinrs_mW[(tx_id, rx_id)] = (dB_to_linear(rx_pwr_dBm), sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm))
+            snrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - rx.thermal_noise_dBm
+        return sinrs_dB, snrs_dB
 
-    def _calculate_network_capacity(self, sinrs: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
+    def _calculate_network_capacity(self, sinrs_dB: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         capacities = {}
-        for (tx_id, rx_id), sinr_dB in sinrs.items():
+        for (tx_id, rx_id), sinr_dB in sinrs_dB.items():
             tx, rx = self.devices[tx_id], self.devices[rx_id]
             # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
             if sinr_dB > rx.rx_sensitivity_dBm:
-                capacities[(tx_id, rx_id)] = tx.rb_bandwidth_kHz * log2(1 + dB_to_linear(sinr_dB)) / 1e6
+                B = tx.rb_bandwidth_kHz * 1000
+                capacities[(tx_id, rx_id)] = 1e-6 * B * log2(1 + dB_to_linear(sinr_dB))
+            else:
+                capacities[(tx_id, rx_id)] = 0
+        return capacities
+
+    def _calculate_throughput_lte(self, sinrs: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
+        capacities = {}
+        num_rbs = 100  # 100RBs @ 20MHz channel bandwidth
+        num_re = 12 * 7 * 2  # num_subcarriers * num_symbols (short CP) * num_slots/subframe
+        for (tx_id, rx_id), sinr_dB in sinrs.items():
+            tx, rx = self.devices[tx_id], self.devices[rx_id]
+            if sinr_dB > rx.rx_sensitivity_dBm:
+                num_bits = 6  # 64QAM
+                capacity_b_per_ms = num_rbs * num_re * num_bits
+                capacity_Mbps = capacity_b_per_ms / 1000
+                capacities[(tx_id, rx_id)] = capacity_Mbps
             else:
                 capacities[(tx_id, rx_id)] = 0
         return capacities

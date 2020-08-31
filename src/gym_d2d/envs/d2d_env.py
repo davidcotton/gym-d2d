@@ -19,6 +19,7 @@ from gym_d2d.traffic_model import SimplexTrafficModel
 DEFAULT_CARRIER_FREQ_GHZ = 2.1
 DEFAULT_NUM_SUBCARRIERS = 12
 DEFAULT_SUBCARRIER_SPACING_KHZ = 15
+DEFAULT_CHANNEL_BANDWIDTH_MHZ = 20.0
 DEFAULT_NUM_RESOURCE_BLOCKS = 30
 DEFAULT_PATH_LOSS_MODEL = FreeSpacePathLoss
 DEFAULT_NUM_SMALL_BASE_STATIONS = 0
@@ -41,6 +42,7 @@ class D2DEnv(gym.Env):
             'carrier_freq_GHz': DEFAULT_CARRIER_FREQ_GHZ,
             'num_subcarriers': DEFAULT_NUM_SUBCARRIERS,
             'subcarrier_spacing_kHz': DEFAULT_SUBCARRIER_SPACING_KHZ,
+            'channel_bandwidth_MHz': DEFAULT_CHANNEL_BANDWIDTH_MHZ,
             'num_rbs': DEFAULT_NUM_RESOURCE_BLOCKS,
             'path_loss_model': DEFAULT_PATH_LOSS_MODEL,
             'num_small_base_stations': DEFAULT_NUM_SMALL_BASE_STATIONS,
@@ -53,7 +55,7 @@ class D2DEnv(gym.Env):
         }, **env_config)
         self.device_config = self._load_device_config(env_config)
 
-        self.simulator = D2DSimulator(self.path_loss_model(self.carrier_freq_GHz), self.num_rbs)
+        self.simulator = D2DSimulator(self.path_loss_model(self.carrier_freq_GHz), self.channel_bandwidth_MHz, self.num_rbs)
         self.bses, self.cues, self.due_pairs = self._create_devices()
         self.due_pairs_inv = {v: k for k, v in self.due_pairs.items()}
 
@@ -136,35 +138,39 @@ class D2DEnv(gym.Env):
         random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
                           for due_id in self.due_pairs.keys()}
         results = self.simulator.step(random_actions)
-        obs = self._get_state(results['sinrs_dB'])
+        obs = self._get_state(results['SINRs_dB'])
         return obs
 
     def step(self, actions):
         due_actions = {due_id: self._extract_action(due_id, action_idx) for due_id, action_idx in actions.items()}
         results = self.simulator.step(due_actions)
-        obs = self._get_state(results['sinrs_dB'])
+        obs = self._get_state(results['SINRs_dB'])
         rewards = self._calculate_rewards(results)
 
         info = {}
         num_cues = 0
         sum_cue_sinr, sum_cue_capacity, system_capacity = 0.0, 0.0, 0.0
-        for ((tx_id, rx_id), sinr_dB), capacity in zip(results['sinrs_dB'].items(), results['capacity_Mbps'].values()):
+        system_sum_rate_bps = 0.0
+        for ((tx_id, rx_id), sinr_dB), capacity in zip(results['SINRs_dB'].items(), results['capacity_Mbps'].values()):
             system_capacity += capacity
+            system_sum_rate_bps += results['sum_rate_bps'][(tx_id, rx_id)]
             if tx_id in self.due_pairs:
                 info[tx_id] = {
                     'rb': due_actions[tx_id].rb,
                     'tx_pwr_dBm': due_actions[tx_id].tx_pwr_dBm,
-                    'due_sinr_dB': sinr_dB,
-                    'due_capacity_Mbps': capacity,
+                    'DUE_SINR_dB': sinr_dB,
+                    'DUE_capacity_Mbps': capacity,
+                    'total_DUE_sum_rate_bps': results['sum_rate_bps'][(tx_id, rx_id)]
                 }
             else:
                 num_cues += 1
                 sum_cue_sinr += sinr_dB
                 sum_cue_capacity += capacity
         info['__env__'] = {
-            'mean_cue_sinr_dB': sum_cue_sinr / num_cues,
-            'cue_capacity_Mbps': sum_cue_capacity,
+            'mean_CUE_SINR_dB': sum_cue_sinr / num_cues,
+            'CUE_capacity_Mbps': sum_cue_capacity,
             'system_capacity_Mbps': system_capacity,
+            'system_sum_rate_bps': system_sum_rate_bps,
         }
 
         return obs, rewards, {'__all__': False}, info
@@ -275,8 +281,12 @@ class D2DEnv(gym.Env):
         return int(self.env_config['subcarrier_spacing_kHz'])
 
     @property
+    def channel_bandwidth_MHz(self) -> float:
+        return float(self.env_config['channel_bandwidth_MHz'])
+
+    @property
     def num_rbs(self) -> int:
-        return self.env_config['num_rbs']
+        return int(self.env_config['num_rbs'])
 
     @property
     def path_loss_model(self) -> Type[PathLoss]:
@@ -284,28 +294,28 @@ class D2DEnv(gym.Env):
 
     @property
     def num_small_base_stations(self) -> int:
-        return self.env_config['num_small_base_stations']
+        return int(self.env_config['num_small_base_stations'])
 
     @property
     def num_cellular_users(self) -> int:
-        return self.env_config['num_cellular_users']
+        return int(self.env_config['num_cellular_users'])
 
     @property
     def num_d2d_pairs(self) -> int:
-        return self.env_config['num_d2d_pairs']
+        return int(self.env_config['num_d2d_pairs'])
 
     @property
     def cell_radius_m(self) -> float:
-        return self.env_config['cell_radius_m']
+        return float(self.env_config['cell_radius_m'])
 
     @property
     def d2d_radius_m(self) -> float:
-        return self.env_config['d2d_radius_m']
+        return float(self.env_config['d2d_radius_m'])
 
     @property
     def cue_max_tx_power_dBm(self) -> int:
-        return self.env_config['cue_max_tx_power_dBm']
+        return int(self.env_config['cue_max_tx_power_dBm'])
 
     @property
     def due_max_tx_power_dBm(self) -> int:
-        return self.env_config['due_max_tx_power_dBm']
+        return int(self.env_config['due_max_tx_power_dBm'])
