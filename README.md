@@ -68,6 +68,7 @@ The environment has the following configuration options:
 | subcarrier_spacing_kHz | The spacing between subcarriers. | `int` | 15.0 |
 | num_rbs | The number of available resource blocks. | `int` | 30 |
 | path_loss_model | The type of path loss model to use. | `gym_d2d.PathLoss` | `gym_d2d.FreeSpacePathLoss` |
+| traffic_model | The model to generate automated traffic. | `gym_d2d.TrafficModel` | `gym_d2d.UplinkTrafficModel` |
 | num_cellular_users | The number of cellular users. | `int`| 30 |
 | num_d2d_pairs | The number of D2D pairs | `int` | 12 |
 | cell_radius_m | The macro base station's cell radius in metres. This parameter controls the radius in which all other devices are contained. | `float` | 250.0 |

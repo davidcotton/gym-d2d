@@ -1,26 +1,39 @@
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from .channel import Channel
-from .device import Device
+from .device import BaseStation, UserEquipment
+from .id import Id
 from .link_type import LinkType
 
 
 class TrafficModel:
-    def __init__(self, devices: List[Device]) -> None:
-        super().__init__()
-        self.devices: List[Device] = devices
-
-    def get_traffic(self) -> Tuple[Device, Device]:
-        pass
-
-    def get_channel(self, rb: int) -> Channel:
+    def get_traffic(self) -> Dict[Tuple[Id, Id], Channel]:
         pass
 
 
 class SimplexTrafficModel(TrafficModel):
-    def get_traffic(self) -> Tuple[Device, Device]:
-        return self.devices[0], self.devices[1]
+    def __init__(self, bs: BaseStation, ues: List[UserEquipment], num_rbs: int) -> None:
+        super().__init__()
+        self.bs: BaseStation = bs
+        self.ues: List[UserEquipment] = ues
+        self.num_rbs: int = num_rbs
 
-    def get_channel(self, rb: int) -> Channel:
-        tx_pwr = self.devices[0].max_tx_power_dBm
-        return Channel(self.devices[0], self.devices[1], LinkType.UPLINK, rb, tx_pwr)
+
+class UplinkTrafficModel(SimplexTrafficModel):
+    def get_traffic(self) -> Dict[Tuple[Id, Id], Channel]:
+        rb = 0
+        traffic = {}
+        for ue in self.ues:
+            traffic[(ue.id, self.bs.id)] = Channel(ue, self.bs, LinkType.UPLINK, rb, ue.max_tx_power_dBm)
+            rb = (rb + 1) % self.num_rbs
+        return traffic
+
+
+class DownlinkTrafficModel(SimplexTrafficModel):
+    def get_traffic(self) -> Dict[Tuple[Id, Id], Channel]:
+        rb = 0
+        traffic = {}
+        for ue in self.ues:
+            traffic[(self.bs.id, ue.id)] = Channel(self.bs, ue, LinkType.DOWNLINK, rb, ue.max_tx_power_dBm)
+            rb = (rb + 1) % self.num_rbs
+        return traffic

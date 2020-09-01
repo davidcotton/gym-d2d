@@ -1,6 +1,6 @@
 from collections import defaultdict
 from math import log2
-from typing import Any, Dict, Tuple, Union
+from typing import Dict, Tuple, Union
 
 from .action import Action
 from .channel import Channel
@@ -21,7 +21,7 @@ class D2DSimulator:
         self.base_stations: Dict[Id, BaseStation] = {}
         self.ues: Dict[Id, UserEquipment] = {}
         self.channels: Dict[Tuple[Id, Id], Channel] = {}
-        self.traffic_models: Dict[Tuple[Any], TrafficModel] = {}
+        self.traffic_model: TrafficModel = None
 
     def reset(self):
         self.channels.clear()
@@ -29,21 +29,18 @@ class D2DSimulator:
     def step(self, actions: Dict[Id, Action]) -> dict:
         self._generate_traffic(actions)
         sinrs_dB, snrs_dB = self._calculate_sinrs()
-        capacities = self._calculate_network_capacity(sinrs_dB)
+        capacities, sum_rate_bps = self._calculate_network_capacity(sinrs_dB)
 
         return {
             'SINRs_dB': sinrs_dB,
             'SNRs_dB': snrs_dB,
             'capacity_Mbps': capacities,
+            'sum_rate_bps': sum_rate_bps,
         }
 
     def _generate_traffic(self, actions: Dict[Id, Action]) -> None:
         # automated traffic
-        rb = 0
-        for ids, traffic_model in self.traffic_models.items():
-            channel = traffic_model.get_channel(rb)
-            self.channels[(channel.tx.id, channel.rx.id)] = channel
-            rb = (rb + 1) % self.num_rbs
+        self.channels = self.traffic_model.get_traffic()
         # supplied actions
         for action in actions.values():
             tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]
@@ -77,17 +74,21 @@ class D2DSimulator:
             snrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - rx.thermal_noise_dBm
         return sinrs_dB, snrs_dB
 
-    def _calculate_network_capacity(self, sinrs_dB: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
-        capacities = {}
+    # def _calculate_network_capacity(self, sinrs_dB: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
+    def _calculate_network_capacity(self, sinrs_dB: Dict[Tuple[Id, Id], float]):
+        capacities_Mbps = {}
+        sum_rate_bps = {}
         for (tx_id, rx_id), sinr_dB in sinrs_dB.items():
             tx, rx = self.devices[tx_id], self.devices[rx_id]
             # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
             if sinr_dB > rx.rx_sensitivity_dBm:
                 B = tx.rb_bandwidth_kHz * 1000
-                capacities[(tx_id, rx_id)] = 1e-6 * B * log2(1 + dB_to_linear(sinr_dB))
+                capacities_Mbps[(tx_id, rx_id)] = 1e-6 * B * log2(1 + dB_to_linear(sinr_dB))
+                sum_rate_bps[(tx_id, rx_id)] = log2(1 + dB_to_linear(sinr_dB))
             else:
-                capacities[(tx_id, rx_id)] = 0
-        return capacities
+                capacities_Mbps[(tx_id, rx_id)] = 0
+                sum_rate_bps[(tx_id, rx_id)] = 0
+        return capacities_Mbps, sum_rate_bps
 
     def _calculate_throughput_lte(self, sinrs: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         capacities = {}
@@ -119,5 +120,4 @@ class D2DSimulator:
         return ue
 
     def add_traffic_model(self, traffic_model: TrafficModel):
-        ids = tuple(d.id for d in traffic_model.devices)
-        self.traffic_models[ids] = traffic_model
+        self.traffic_model = traffic_model

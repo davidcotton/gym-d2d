@@ -15,7 +15,7 @@ from gym_d2d.link_type import LinkType
 from gym_d2d.path_loss import PathLoss, FreeSpacePathLoss
 from gym_d2d.position import Position, get_random_position, get_random_position_nearby
 from gym_d2d.simulator import D2DSimulator
-from gym_d2d.traffic_model import SimplexTrafficModel
+from gym_d2d.traffic_model import TrafficModel, UplinkTrafficModel
 
 
 DEFAULT_CARRIER_FREQ_GHZ = 2.1
@@ -24,6 +24,7 @@ DEFAULT_SUBCARRIER_SPACING_KHZ = 15
 DEFAULT_CHANNEL_BANDWIDTH_MHZ = 20.0
 DEFAULT_NUM_RESOURCE_BLOCKS = 30
 DEFAULT_PATH_LOSS_MODEL = FreeSpacePathLoss
+DEFAULT_TRAFFIC_MODEL = UplinkTrafficModel
 DEFAULT_NUM_SMALL_BASE_STATIONS = 0
 DEFAULT_NUM_CELLULAR_USERS = 30
 DEFAULT_NUM_D2D_PAIRS = 12
@@ -47,6 +48,7 @@ class D2DEnv(gym.Env):
             'channel_bandwidth_MHz': DEFAULT_CHANNEL_BANDWIDTH_MHZ,
             'num_rbs': DEFAULT_NUM_RESOURCE_BLOCKS,
             'path_loss_model': DEFAULT_PATH_LOSS_MODEL,
+            'traffic_model': DEFAULT_TRAFFIC_MODEL,
             'num_small_base_stations': DEFAULT_NUM_SMALL_BASE_STATIONS,
             'num_cellular_users': DEFAULT_NUM_CELLULAR_USERS,
             'num_d2d_pairs': DEFAULT_NUM_D2D_PAIRS,
@@ -102,14 +104,15 @@ class D2DEnv(gym.Env):
 
         # create cellular UEs
         cues = []
+        cue_ids = []
         default_cue_cfg = {**base_cfg, **{'max_tx_power_dBm': self.cue_max_tx_power_dBm}}
         for i in range(self.num_cellular_users):
             cue_id = Id(f'cue{i:02d}')
             config = self.device_config[cue_id]['config'] if cue_id in self.device_config else default_cue_cfg
             cue = self.simulator.add_ue(cue_id, config)
-            cues.append(cue_id)
-            traffic_model = SimplexTrafficModel([cue, macro_bs])
-            self.simulator.add_traffic_model(traffic_model)
+            cues.append(cue)
+            cue_ids.append(cue.id)
+        self.simulator.add_traffic_model(self.traffic_model(macro_bs, cues, self.num_rbs))
 
         # create D2D UEs
         due_pairs = {}
@@ -123,7 +126,7 @@ class D2DEnv(gym.Env):
             self.simulator.add_ue(due_rx_id, due_rx_config)
             due_pairs[due_tx_id] = due_rx_id
 
-        return bses, cues, due_pairs
+        return bses, cue_ids, due_pairs
 
     def reset(self):
         for device in self.simulator.devices.values():
@@ -320,6 +323,10 @@ class D2DEnv(gym.Env):
     @property
     def path_loss_model(self) -> Type[PathLoss]:
         return self.env_config['path_loss_model']
+
+    @property
+    def traffic_model(self) -> Type[TrafficModel]:
+        return self.env_config['traffic_model']
 
     @property
     def num_small_base_stations(self) -> int:
