@@ -62,11 +62,11 @@ class D2DEnv(gym.Env):
 
         self.bs, self.cues, self.dues, self.due_pairs = self._create_devices()
         self.due_pairs_inv = {v: k for k, v in self.due_pairs.items()}
-        traffic_model = self.traffic_model(self.bs, self.cues, self.num_rbs)
+        traffic_model = self.traffic_model(self.bs, self.cues.values(), self.num_rbs)
         path_loss = self.path_loss_model(self.carrier_freq_GHz)
         devices = {
             self.bs.id: self.bs,
-            **{cue.id: cue for cue in self.cues},
+            **self.cues,
             **self.dues
         }
         self.simulator = D2DSimulator(devices, traffic_model, path_loss)
@@ -89,7 +89,7 @@ class D2DEnv(gym.Env):
         num_tx_pwr_actions = self.due_max_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
         self.action_space = spaces.Discrete(self.num_rbs * num_tx_pwr_actions)
 
-    def _create_devices(self) -> Tuple[BaseStation, List[UserEquipment], Dict[Id, UserEquipment], Dict[Id, Id]]:
+    def _create_devices(self) -> Tuple[BaseStation, Dict[Id, UserEquipment], Dict[Id, UserEquipment], Dict[Id, Id]]:
         """Initialise small base stations, cellular UE & D2D UE pairs in the simulator as per the env config.
 
         :returns: A tuple containing a list of base station, CUE & a dict of DUE pair IDs created.
@@ -105,12 +105,12 @@ class D2DEnv(gym.Env):
         bs = BaseStation(Id(BASE_STATION_ID), config)
 
         # create cellular UEs
-        cues = []
+        cues = {}
         default_cue_cfg = {**base_cfg, **{'max_tx_power_dBm': self.cue_max_tx_power_dBm}}
         for i in range(self.num_cellular_users):
             cue_id = Id(f'cue{i:02d}')
             config = self.device_config[cue_id]['config'] if cue_id in self.device_config else default_cue_cfg
-            cues.append(UserEquipment(cue_id, config))
+            cues[cue_id] = UserEquipment(cue_id, config)
 
         # create D2D UEs
         due_pairs = {}
@@ -135,7 +135,7 @@ class D2DEnv(gym.Env):
                 pos = Position(0, 0)  # assume MBS fixed at (0,0) and everything else builds around it
             elif device.id in self.device_config:
                 pos = Position(*self.device_config[device.id]['position'])
-            elif any(device.id in d for d in [[self.bs], self.cues, self.due_pairs]):
+            elif any(device.id in d for d in [self.cues, self.due_pairs]):
                 pos = get_random_position(self.cell_radius_m)
             elif device.id in self.due_pairs_inv:
                 due_tx_id = self.due_pairs_inv[device.id]
