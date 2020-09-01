@@ -57,7 +57,6 @@ class D2DSimulator:
             rbs[channel.rb].add(channel)
 
         sinrs_dB = {}
-        # sinrs_mW = {}
         snrs_dB = {}
         for (tx_id, rx_id), channel in self.channels.items():
             tx, rx = channel.tx, channel.rx
@@ -75,7 +74,6 @@ class D2DSimulator:
             # ix_and_noise_mW = sum_ix_pwr_mW + noise_mW
             # sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(ix_and_noise_mW)
             sinrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm))
-            # sinrs_mW[(tx_id, rx_id)] = (dB_to_linear(rx_pwr_dBm), sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm))
             snrs_dB[(tx_id, rx_id)] = rx_pwr_dBm - rx.thermal_noise_dBm
         return sinrs_dB, snrs_dB
 
