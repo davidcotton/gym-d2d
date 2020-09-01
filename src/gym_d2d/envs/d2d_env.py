@@ -10,6 +10,7 @@ import numpy as np
 
 from gym_d2d.action import Action
 from gym_d2d.conversion import dB_to_linear
+from gym_d2d.device import BaseStation, UserEquipment
 from gym_d2d.id import Id
 from gym_d2d.link_type import LinkType
 from gym_d2d.path_loss import PathLoss, FreeSpacePathLoss
@@ -32,7 +33,7 @@ DEFAULT_CELL_RADIUS_M = 250.0
 DEFAULT_D2D_RADIUS_M = 20.0
 DEFAULT_CUE_MAX_TX_POWER_DBM = 23
 DEFAULT_DUE_MAX_TX_POWER_DBM = 23
-MACRO_BASE_STATION_ID = 'mbs'
+BASE_STATION_ID = 'mbs'
 
 
 class D2DEnv(gym.Env):
@@ -59,9 +60,16 @@ class D2DEnv(gym.Env):
         }, **env_config)
         self.device_config = self._load_device_config(env_config)
 
-        self.simulator = D2DSimulator(self.path_loss_model(self.carrier_freq_GHz), self.channel_bandwidth_MHz, self.num_rbs)
-        self.bses, self.cues, self.due_pairs = self._create_devices()
+        self.bs, self.cues, self.dues, self.due_pairs = self._create_devices()
         self.due_pairs_inv = {v: k for k, v in self.due_pairs.items()}
+        traffic_model = self.traffic_model(self.bs, self.cues, self.num_rbs)
+        path_loss = self.path_loss_model(self.carrier_freq_GHz)
+        devices = {
+            self.bs.id: self.bs,
+            **{cue.id: cue for cue in self.cues},
+            **self.dues
+        }
+        self.simulator = D2DSimulator(devices, traffic_model, path_loss)
 
         num_txs = self.num_cellular_users + self.num_d2d_pairs
 
@@ -81,7 +89,7 @@ class D2DEnv(gym.Env):
         num_tx_pwr_actions = self.due_max_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
         self.action_space = spaces.Discrete(self.num_rbs * num_tx_pwr_actions)
 
-    def _create_devices(self) -> Tuple[List[Id], List[Id], Dict[Id, Id]]:
+    def _create_devices(self) -> Tuple[BaseStation, List[UserEquipment], Dict[Id, UserEquipment], Dict[Id, Id]]:
         """Initialise small base stations, cellular UE & D2D UE pairs in the simulator as per the env config.
 
         :returns: A tuple containing a list of base station, CUE & a dict of DUE pair IDs created.
@@ -93,48 +101,41 @@ class D2DEnv(gym.Env):
         }
 
         # create macro base station
-        macro_bs = self.simulator.add_base_station(Id(MACRO_BASE_STATION_ID), {})
-        bses = [macro_bs]
-        # create small base stations
-        for i in range(self.num_small_base_stations):
-            sbs_id = Id(f'sbs{i:02d}')
-            config = self.device_config[sbs_id]['config'] if sbs_id in self.device_config else base_cfg
-            self.simulator.add_base_station(sbs_id, config)
-            bses.append(sbs_id)
+        config = self.device_config[BASE_STATION_ID]['config'] if BASE_STATION_ID in self.device_config else base_cfg
+        bs = BaseStation(Id(BASE_STATION_ID), config)
 
         # create cellular UEs
         cues = []
-        cue_ids = []
         default_cue_cfg = {**base_cfg, **{'max_tx_power_dBm': self.cue_max_tx_power_dBm}}
         for i in range(self.num_cellular_users):
             cue_id = Id(f'cue{i:02d}')
             config = self.device_config[cue_id]['config'] if cue_id in self.device_config else default_cue_cfg
-            cue = self.simulator.add_ue(cue_id, config)
-            cues.append(cue)
-            cue_ids.append(cue.id)
-        self.simulator.add_traffic_model(self.traffic_model(macro_bs, cues, self.num_rbs))
+            cues.append(UserEquipment(cue_id, config))
 
         # create D2D UEs
         due_pairs = {}
+        dues = {}
         def_due_cfg = {**base_cfg, **{'max_tx_power_dBm': self.due_max_tx_power_dBm}}
         for i in range(0, (self.num_d2d_pairs * 2), 2):
             due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
             due_tx_config = self.device_config[due_tx_id]['config'] if due_tx_id in self.device_config else def_due_cfg
-            self.simulator.add_ue(due_tx_id, due_tx_config)
+            due_tx = UserEquipment(due_tx_id, due_tx_config)
+            dues[due_tx.id] = due_tx
 
             due_rx_config = self.device_config[due_rx_id]['config'] if due_rx_id in self.device_config else def_due_cfg
-            self.simulator.add_ue(due_rx_id, due_rx_config)
+            due_rx = UserEquipment(due_rx_id, due_rx_config)
+            dues[due_rx.id] = due_rx
             due_pairs[due_tx_id] = due_rx_id
 
-        return bses, cue_ids, due_pairs
+        return bs, cues, dues, due_pairs
 
     def reset(self):
         for device in self.simulator.devices.values():
-            if device.id == MACRO_BASE_STATION_ID:
+            if device.id == BASE_STATION_ID:
                 pos = Position(0, 0)  # assume MBS fixed at (0,0) and everything else builds around it
             elif device.id in self.device_config:
                 pos = Position(*self.device_config[device.id]['position'])
-            elif any(device.id in d for d in [self.bses, self.cues, self.due_pairs]):
+            elif any(device.id in d for d in [[self.bs], self.cues, self.due_pairs]):
                 pos = get_random_position(self.cell_radius_m)
             elif device.id in self.due_pairs_inv:
                 due_tx_id = self.due_pairs_inv[device.id]
