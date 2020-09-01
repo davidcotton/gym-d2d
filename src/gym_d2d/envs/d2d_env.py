@@ -1,5 +1,6 @@
 from collections import defaultdict
 import json
+from math import log2
 from pathlib import Path
 from typing import Dict, List, Tuple, Type
 
@@ -8,6 +9,7 @@ from gym import spaces
 import numpy as np
 
 from gym_d2d.action import Action
+from gym_d2d.conversion import dB_to_linear
 from gym_d2d.id import Id
 from gym_d2d.link_type import LinkType
 from gym_d2d.path_loss import PathLoss, FreeSpacePathLoss
@@ -60,13 +62,19 @@ class D2DEnv(gym.Env):
         self.due_pairs_inv = {v: k for k, v in self.due_pairs.items()}
 
         num_txs = self.num_cellular_users + self.num_d2d_pairs
-        num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
-        # num_all_tx_obs = 5  # sinrs, tx_pwrs, rbs, xys
-        # num_all_rx_obs = 2  # xys
-        # obs_shape = ((num_txs * num_all_tx_obs) + (num_rxs * num_all_rx_obs),)
-        num_due_obs = 2  # x, y
-        num_common_obs = 7  # tx_x, tx_y, rx_x, rx_y, tx_pwr, rb, sinr
-        obs_shape = (num_due_obs + (num_common_obs * num_txs),)
+
+        # get_state1
+        # num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
+        num_tx_obs = 5  # sinrs, tx_pwrs, rbs, xs, ys
+        num_rx_obs = 2  # xs, ys
+        # obs_shape = ((num_txs * num_tx_obs) + (num_rxs * num_rx_obs),)
+        obs_shape = ((num_txs * num_tx_obs) + (num_txs * num_rx_obs),)
+
+        # get_state2
+        # num_due_obs = 2  # x, y
+        # num_common_obs = 7  # tx_x, tx_y, rx_x, rx_y, tx_pwr, rb, sinr
+        # obs_shape = (num_due_obs + (num_common_obs * num_txs),)
+
         self.observation_space = spaces.Box(low=-self.cell_radius_m, high=self.cell_radius_m, shape=obs_shape)
         num_tx_pwr_actions = self.due_max_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
         self.action_space = spaces.Discrete(self.num_rbs * num_tx_pwr_actions)
@@ -181,6 +189,10 @@ class D2DEnv(gym.Env):
         return Action(due_tx_id, self.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def _calculate_rewards(self, results: dict) -> dict:
+        # return self._rewards_capacity(results)
+        return self._rewards_shannon(results)
+
+    def _rewards_capacity(self, results: dict):
         # group by RB
         rbs = defaultdict(set)
         for ids, channel in self.simulator.channels.items():
@@ -208,26 +220,43 @@ class D2DEnv(gym.Env):
             rewards[tx_id] = reward
         return rewards
 
+    def _rewards_shannon(self, results: dict):
+        rewards = {}
+        for ids in self.due_pairs.items():
+            sinr = results['SINRs_dB'][ids]
+            if sinr < 0:
+                rewards[ids] = log2(1 + dB_to_linear(sinr))
+            else:
+                rewards[ids] = -1
+        return rewards
+
     def render(self, mode='human'):
         obs = self._get_state({})  # @todo need to find a way to handle SINRs here
         print(obs)
 
     def _get_state(self, sinrs: Dict[Tuple[Id, Id], float]):
-        # tx_pwrs_dBm = []
-        # rbs = []
-        # positions = []
-        # for channel in self.simulator.channels.values():
-        #     tx_pwrs_dBm.append(channel.tx_pwr_dBm)
-        #     rbs.append(channel.rb)
-        #     positions.extend(list(channel.tx.position.as_tuple()))
-        # for channel in self.simulator.channels.values():
-        #     positions.extend(list(channel.rx.position.as_tuple()))
-        # common_obs = []
-        # common_obs.extend(list(sinrs.values()))
-        # common_obs.extend(tx_pwrs_dBm)
-        # common_obs.extend(rbs)
-        # common_obs.extend(positions)
+        return self._get_state1(sinrs)
+        # return self._get_state2(sinrs)
 
+    def _get_state1(self, sinrs: Dict[Tuple[Id, Id], float]):
+        tx_pwrs_dBm = []
+        rbs = []
+        positions = []
+        for channel in self.simulator.channels.values():
+            tx_pwrs_dBm.append(channel.tx_pwr_dBm)
+            rbs.append(channel.rb)
+            positions.extend(list(channel.tx.position.as_tuple()))
+        for channel in self.simulator.channels.values():
+            positions.extend(list(channel.rx.position.as_tuple()))
+        common_obs = []
+        common_obs.extend(list(sinrs.values()))
+        common_obs.extend(tx_pwrs_dBm)
+        common_obs.extend(rbs)
+        common_obs.extend(positions)
+
+        return {due_id: np.array(common_obs) for due_id in self.due_pairs.keys()}
+
+    def _get_state2(self, sinrs: Dict[Tuple[Id, Id], float]):
         common_obs = []
         for channel in self.simulator.channels.values():
             common_obs.extend(list(channel.tx.position.as_tuple()))
