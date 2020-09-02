@@ -32,6 +32,7 @@ DEFAULT_NUM_D2D_PAIRS = 12
 DEFAULT_CELL_RADIUS_M = 250.0
 DEFAULT_D2D_RADIUS_M = 20.0
 DEFAULT_CUE_MAX_TX_POWER_DBM = 23
+DEFAULT_DUE_MIN_TX_POWER_DBM = 0
 DEFAULT_DUE_MAX_TX_POWER_DBM = 23
 BASE_STATION_ID = 'mbs'
 
@@ -56,6 +57,7 @@ class D2DEnv(gym.Env):
             'cell_radius_m': DEFAULT_CELL_RADIUS_M,
             'd2d_radius_m': DEFAULT_D2D_RADIUS_M,
             'cue_max_tx_power_dBm': DEFAULT_CUE_MAX_TX_POWER_DBM,
+            'due_min_tx_power_dBm': DEFAULT_DUE_MIN_TX_POWER_DBM,
             'due_max_tx_power_dBm': DEFAULT_DUE_MAX_TX_POWER_DBM,
         }, **env_config)
         self.device_config = self._load_device_config(env_config)
@@ -86,7 +88,7 @@ class D2DEnv(gym.Env):
         # obs_shape = (num_due_obs + (num_common_obs * num_txs),)
 
         self.observation_space = spaces.Box(low=-self.cell_radius_m, high=self.cell_radius_m, shape=obs_shape)
-        num_tx_pwr_actions = self.due_max_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
+        num_tx_pwr_actions = self.due_max_tx_power_dBm - self.due_min_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
         self.action_space = spaces.Discrete(self.num_rbs * num_tx_pwr_actions)
 
     def _create_devices(self) -> Tuple[BaseStation, Dict[Id, UserEquipment], Dict[Id, UserEquipment], Dict[Id, Id]]:
@@ -189,7 +191,7 @@ class D2DEnv(gym.Env):
 
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.num_rbs
-        tx_pwr_dBm = action_idx // self.num_rbs
+        tx_pwr_dBm = (action_idx // self.num_rbs) + self.due_min_tx_power_dBm
         return Action(due_tx_id, self.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def _calculate_rewards(self, results: dict) -> dict:
@@ -374,6 +376,10 @@ class D2DEnv(gym.Env):
     @property
     def cue_max_tx_power_dBm(self) -> int:
         return int(self.env_config['cue_max_tx_power_dBm'])
+
+    @property
+    def due_min_tx_power_dBm(self) -> int:
+        return int(self.env_config['due_min_tx_power_dBm'])
 
     @property
     def due_max_tx_power_dBm(self) -> int:
