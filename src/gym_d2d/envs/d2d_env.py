@@ -248,11 +248,10 @@ class D2DEnv(gym.Env):
             ix_channels = rbs[channel.rb].difference({channel})
             rewards[ids] = -1
             for ix_channel in ix_channels:
-                if ix_channel.link_type == LinkType.SIDELINK:
-                    continue
-                cue_sinr_dB = results['SINRs_dB'][(channel.tx.id, channel.rx.id)]
-                if cue_sinr_dB < sinr_threshold_dB:
-                    break
+                if ix_channel.link_type != LinkType.SIDELINK:
+                    cue_sinr_dB = results['SINRs_dB'][(ix_channel.tx.id, ix_channel.rx.id)]
+                    if cue_sinr_dB < sinr_threshold_dB:
+                        break
             else:
                 rewards[ids] = log2(1 + dB_to_linear(results['SINRs_dB'][ids]))
         return rewards
