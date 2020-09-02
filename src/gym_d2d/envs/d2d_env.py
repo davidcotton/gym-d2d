@@ -229,12 +229,12 @@ class D2DEnv(gym.Env):
 
     def _rewards_shannon_simple(self, results: dict):
         rewards = {}
-        for ids in self.due_pairs.items():
-            sinr = results['SINRs_dB'][ids]
+        for tx_id, rx_id in self.due_pairs.items():
+            sinr = results['SINRs_dB'][(tx_id, rx_id)]
             if sinr < 0:
-                rewards[ids] = log2(1 + dB_to_linear(sinr))
+                rewards[tx_id] = log2(1 + dB_to_linear(sinr))
             else:
-                rewards[ids] = -1
+                rewards[tx_id] = -1
         return rewards
 
     def _rewards_shannon_cue_sinr(self, results: dict):
@@ -245,17 +245,17 @@ class D2DEnv(gym.Env):
             rbs[channel.rb].add(channel)
 
         rewards = {}
-        for ids in self.due_pairs.items():
-            channel = self.simulator.channels[ids]
+        for tx_id, rx_id in self.due_pairs.items():
+            channel = self.simulator.channels[(tx_id, rx_id)]
             ix_channels = rbs[channel.rb].difference({channel})
-            rewards[ids] = -1
+            rewards[tx_id] = -1
             for ix_channel in ix_channels:
                 if ix_channel.link_type != LinkType.SIDELINK:
                     cue_sinr_dB = results['SINRs_dB'][(ix_channel.tx.id, ix_channel.rx.id)]
                     if cue_sinr_dB < sinr_threshold_dB:
                         break
             else:
-                rewards[ids] = log2(1 + dB_to_linear(results['SINRs_dB'][ids]))
+                rewards[tx_id] = log2(1 + dB_to_linear(results['SINRs_dB'][(tx_id, rx_id)]))
         return rewards
 
     def render(self, mode='human'):
