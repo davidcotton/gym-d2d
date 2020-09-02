@@ -194,7 +194,8 @@ class D2DEnv(gym.Env):
 
     def _calculate_rewards(self, results: dict) -> dict:
         # return self._rewards_capacity(results)
-        return self._rewards_shannon(results)
+        # return self._rewards_shannon_simple(results)
+        return self._rewards_shannon_cue_sinr(results)
 
     def _rewards_capacity(self, results: dict):
         # group by RB
@@ -224,7 +225,7 @@ class D2DEnv(gym.Env):
             rewards[tx_id] = reward
         return rewards
 
-    def _rewards_shannon(self, results: dict):
+    def _rewards_shannon_simple(self, results: dict):
         rewards = {}
         for ids in self.due_pairs.items():
             sinr = results['SINRs_dB'][ids]
@@ -232,6 +233,28 @@ class D2DEnv(gym.Env):
                 rewards[ids] = log2(1 + dB_to_linear(sinr))
             else:
                 rewards[ids] = -1
+        return rewards
+
+    def _rewards_shannon_cue_sinr(self, results: dict):
+        sinr_threshold_dB = 0
+        # group channels by RB
+        rbs = defaultdict(set)
+        for ids, channel in self.simulator.channels.items():
+            rbs[channel.rb].add(channel)
+
+        rewards = {}
+        for ids in self.due_pairs.items():
+            channel = self.simulator.channels[ids]
+            ix_channels = rbs[channel.rb].difference({channel})
+            rewards[ids] = -1
+            for ix_channel in ix_channels:
+                if ix_channel.link_type == LinkType.SIDELINK:
+                    continue
+                cue_sinr_dB = results['SINRs_dB'][(channel.tx.id, channel.rx.id)]
+                if cue_sinr_dB < sinr_threshold_dB:
+                    break
+            else:
+                rewards[ids] = log2(1 + dB_to_linear(results['SINRs_dB'][ids]))
         return rewards
 
     def render(self, mode='human'):
