@@ -62,13 +62,13 @@ class D2DEnv(gym.Env):
 
         self.bs, self.cues, self.dues, self.due_pairs = self._create_devices()
         self.due_pairs_inv = {v: k for k, v in self.due_pairs.items()}
-        traffic_model = self.traffic_model(self.bs, self.cues.values(), self.num_rbs)
-        path_loss = self.path_loss_model(self.carrier_freq_GHz)
         devices = {
             self.bs.id: self.bs,
             **self.cues,
             **self.dues
         }
+        traffic_model = self.traffic_model(self.bs, list(self.cues.values()), self.num_rbs)
+        path_loss = self.path_loss_model(self.carrier_freq_GHz)
         self.simulator = D2DSimulator(devices, traffic_model, path_loss)
 
         num_txs = self.num_cellular_users + self.num_d2d_pairs

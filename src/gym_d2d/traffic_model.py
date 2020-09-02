@@ -7,19 +7,17 @@ from .link_type import LinkType
 
 
 class TrafficModel:
-    def get_traffic(self) -> Dict[Tuple[Id, Id], Channel]:
-        pass
-
-
-class SimplexTrafficModel(TrafficModel):
     def __init__(self, bs: BaseStation, ues: List[UserEquipment], num_rbs: int) -> None:
         super().__init__()
         self.bs: BaseStation = bs
         self.ues: List[UserEquipment] = ues
         self.num_rbs: int = num_rbs
 
+    def get_traffic(self) -> Dict[Tuple[Id, Id], Channel]:
+        pass
 
-class UplinkTrafficModel(SimplexTrafficModel):
+
+class UplinkTrafficModel(TrafficModel):
     def get_traffic(self) -> Dict[Tuple[Id, Id], Channel]:
         rb = 0
         traffic = {}
@@ -29,7 +27,7 @@ class UplinkTrafficModel(SimplexTrafficModel):
         return traffic
 
 
-class DownlinkTrafficModel(SimplexTrafficModel):
+class DownlinkTrafficModel(TrafficModel):
     def get_traffic(self) -> Dict[Tuple[Id, Id], Channel]:
         rb = 0
         traffic = {}
