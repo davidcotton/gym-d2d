@@ -63,21 +63,21 @@ The environment has the following configuration options:
 
 | Parameter | Description | Datatype | Default Value |
 |-----------|-------------|----------|---------------|
-| carrier_freq_GHz | The carrier frequency used, in GHz. | `float` | 2.1 |
-| num_subcarriers | The number of subcarriers. | `int` | 12 |
-| subcarrier_spacing_kHz | The spacing between subcarriers. | `int` | 15 |
-| channel_bandwidth_MHz | The channel bandwidth in MHz. | `float` | 20.0 |
 | num_rbs | The number of available resource blocks. | `int` | 30 |
-| path_loss_model | The type of path loss model to use. | `gym_d2d.PathLoss` | `gym_d2d.FreeSpacePathLoss` |
-| traffic_model | The model to generate automated traffic. | `gym_d2d.TrafficModel` | `gym_d2d.UplinkTrafficModel` |
 | num_cellular_users | The number of cellular users. | `int`| 30 |
 | num_d2d_pairs | The number of D2D pairs | `int` | 12 |
-| cell_radius_m | The macro base station's cell radius in metres. This parameter controls the radius in which all other devices are contained. | `float` | 250.0 |
+| cell_radius_m | The macro base station's cell radius in metres. This parameter controls the radius in which all other devices are contained. | `float` | 500.0 |
 | d2d_radius_m  | The maximum distance between D2D pairs in metres. | `float` | 20.0 |
 | cue_max_tx_power_dBm | The maximum CUE transmission power in dBm. This is a discrete value, from 0 to max. | `int` | 23 |
 | due_min_tx_power_dBm | The minimum DUE transmission power in dBm. | `int` | 0 |
 | due_max_tx_power_dBm | The maximum DUE transmission power in dBm. | `int` | 23 |
-| device_config_file | A path to a device configuration JSON file | `pathlib.Path` | None (random device positions) |
+| path_loss_model | The type of path loss model to use. | `gym_d2d.PathLoss` | `gym_d2d.FreeSpacePathLoss` |
+| traffic_model | The model to generate automated traffic. | `gym_d2d.TrafficModel` | `gym_d2d.UplinkTrafficModel` |
+| carrier_freq_GHz | The carrier frequency used, in GHz. | `float` | 2.1 |
+| num_subcarriers | The number of subcarriers. | `int` | 12 |
+| subcarrier_spacing_kHz | The spacing between subcarriers. | `int` | 15 |
+| channel_bandwidth_MHz | The channel bandwidth in MHz. | `float` | 20.0 |
+| device_config_file | A path to a device configuration JSON file. | `pathlib.Path` | None (random device positions) |
 
 ### Device Configuration
 By default, each time the environment is `reset()`, each UE is randomly assigned a new position. 
