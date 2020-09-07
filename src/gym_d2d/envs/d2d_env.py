@@ -1,7 +1,5 @@
-from collections import defaultdict
 from dataclasses import dataclass
 import json
-from math import log2
 from pathlib import Path
 from typing import Dict, Optional, Tuple, Type
 
@@ -9,8 +7,9 @@ import gym
 from gym import spaces
 import numpy as np
 
+from .devices import Devices
+from .reward_functions import RewardFunction, SystemCapacityRewardFunction
 from gym_d2d.action import Action
-from gym_d2d.conversion import dB_to_linear
 from gym_d2d.device import BaseStation, UserEquipment
 from gym_d2d.id import Id
 from gym_d2d.link_type import LinkType
@@ -40,6 +39,7 @@ class EnvConfig:
     num_subcarriers: int = 12
     subcarrier_spacing_kHz: int = 15
     channel_bandwidth_MHz: float = 20.0
+    reward_function: RewardFunction = SystemCapacityRewardFunction()
     device_config_file: Optional[Path] = None
 
     def __post_init__(self):
@@ -59,16 +59,10 @@ class D2DEnv(gym.Env):
     def __init__(self, env_config=None) -> None:
         super().__init__()
         self.config = EnvConfig(**env_config or {})
-        self.bs, self.cues, self.dues, self.due_pairs = self._create_devices()
-        self.due_pairs_inv = {v: k for k, v in self.due_pairs.items()}
-        devices = {
-            self.bs.id: self.bs,
-            **self.cues,
-            **self.dues
-        }
-        traffic_model = self.config.traffic_model(self.bs, list(self.cues.values()), self.config.num_rbs)
+        self.devices = self._create_devices()
+        traffic_model = self.config.traffic_model(self.devices.bs, list(self.devices.cues.values()), self.config.num_rbs)
         path_loss = self.config.path_loss_model(self.config.carrier_freq_GHz)
-        self.simulator = D2DSimulator(devices, traffic_model, path_loss)
+        self.simulator = D2DSimulator(self.devices.to_dict(), traffic_model, path_loss)
 
         num_txs = self.config.num_cellular_users + self.config.num_d2d_pairs
 
@@ -88,7 +82,7 @@ class D2DEnv(gym.Env):
         num_tx_pwr_actions = self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
         self.action_space = spaces.Discrete(self.config.num_rbs * num_tx_pwr_actions)
 
-    def _create_devices(self) -> Tuple[BaseStation, Dict[Id, UserEquipment], Dict[Id, UserEquipment], Dict[Id, Id]]:
+    def _create_devices(self) -> Devices:
         """Initialise small base stations, cellular UE & D2D UE pairs in the simulator as per the env config.
 
         :returns: A tuple containing a list of base station, CUE & a dict of DUE pair IDs created.
@@ -112,21 +106,20 @@ class D2DEnv(gym.Env):
             cues[cue_id] = UserEquipment(cue_id, config)
 
         # create D2D UEs
-        due_pairs = {}
         dues = {}
         due_cfg = {**base_cfg, **{'max_tx_power_dBm': self.config.due_max_tx_power_dBm}}
         for i in range(0, (self.config.num_d2d_pairs * 2), 2):
             due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
+
             due_tx_config = self.config.devices[due_tx_id]['config'] if due_tx_id in self.config.devices else due_cfg
             due_tx = UserEquipment(due_tx_id, due_tx_config)
-            dues[due_tx.id] = due_tx
 
             due_rx_config = self.config.devices[due_rx_id]['config'] if due_rx_id in self.config.devices else due_cfg
             due_rx = UserEquipment(due_rx_id, due_rx_config)
-            dues[due_rx.id] = due_rx
-            due_pairs[due_tx_id] = due_rx_id
 
-        return bs, cues, dues, due_pairs
+            dues[(due_tx.id, due_rx.id)] = due_tx, due_rx
+
+        return Devices(bs, cues, dues)
 
     def reset(self):
         for device in self.simulator.devices.values():
@@ -134,10 +127,10 @@ class D2DEnv(gym.Env):
                 pos = Position(0, 0)  # assume MBS fixed at (0,0) and everything else builds around it
             elif device.id in self.config.devices:
                 pos = Position(*self.config.devices[device.id]['position'])
-            elif any(device.id in d for d in [self.cues, self.due_pairs]):
+            elif any(device.id in d for d in [self.devices.cues, self.devices.due_pairs]):
                 pos = get_random_position(self.config.cell_radius_m)
-            elif device.id in self.due_pairs_inv:
-                due_tx_id = self.due_pairs_inv[device.id]
+            elif device.id in self.devices.due_pairs_inv:
+                due_tx_id = self.devices.due_pairs_inv[device.id]
                 due_tx = self.simulator.devices[due_tx_id]
                 pos = get_random_position_nearby(self.config.cell_radius_m, due_tx.position, self.config.d2d_radius_m)
             else:
@@ -147,7 +140,7 @@ class D2DEnv(gym.Env):
         self.simulator.reset()
         # take a step with random D2D actions to generate initial SINRs
         random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
-                          for due_id in self.due_pairs.keys()}
+                          for due_id in self.devices.due_pairs.keys()}
         results = self.simulator.step(random_actions)
         obs = self._get_state(results['SINRs_dB'])
         return obs
@@ -156,7 +149,7 @@ class D2DEnv(gym.Env):
         due_actions = {due_id: self._extract_action(due_id, action_idx) for due_id, action_idx in actions.items()}
         results = self.simulator.step(due_actions)
         obs = self._get_state(results['SINRs_dB'])
-        rewards = self._calculate_rewards(results)
+        rewards = self.config.reward_function(self.simulator, self.devices, results)
 
         info = {}
         num_cues = 0
@@ -165,7 +158,7 @@ class D2DEnv(gym.Env):
         for ((tx_id, rx_id), sinr_dB), capacity in zip(results['SINRs_dB'].items(), results['capacity_Mbps'].values()):
             system_capacity += capacity
             system_sum_rate_bps += results['sum_rate_bps'][(tx_id, rx_id)]
-            if tx_id in self.due_pairs:
+            if tx_id in self.devices.due_pairs:
                 info[tx_id] = {
                     'rb': due_actions[tx_id].rb,
                     'tx_pwr_dBm': due_actions[tx_id].tx_pwr_dBm,
@@ -189,71 +182,7 @@ class D2DEnv(gym.Env):
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.config.num_rbs
         tx_pwr_dBm = (action_idx // self.config.num_rbs) + self.config.due_min_tx_power_dBm
-        return Action(due_tx_id, self.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
-
-    def _calculate_rewards(self, results: dict) -> dict:
-        # return self._rewards_capacity(results)
-        # return self._rewards_shannon_simple(results)
-        return self._rewards_shannon_cue_sinr(results)
-
-    def _rewards_capacity(self, results: dict):
-        # group by RB
-        rbs = defaultdict(set)
-        for ids, channel in self.simulator.channels.items():
-            rbs[channel.rb].add(ids)
-
-        reward = -1
-        brake = False
-        for tx_id, rx_id in self.due_pairs.items():
-            if brake:
-                break
-            rb = self.simulator.channels[(tx_id, rx_id)].rb
-            ix_channels = rbs[rb].difference({(tx_id, rx_id)})
-            for ix_tx_id, ix_rx_id in ix_channels:
-                if ix_tx_id in self.due_pairs:
-                    continue
-                if results['capacity_Mbps'][(ix_tx_id, ix_rx_id)] <= 0:
-                    brake = True
-                    break
-        else:
-            sum_capacity = sum(c for c in results['capacity_Mbps'].values())
-            reward = sum_capacity / len(self.due_pairs)
-
-        rewards = {}
-        for tx_id, rx_id in self.due_pairs.items():
-            rewards[tx_id] = reward
-        return rewards
-
-    def _rewards_shannon_simple(self, results: dict):
-        rewards = {}
-        for tx_id, rx_id in self.due_pairs.items():
-            sinr = results['SINRs_dB'][(tx_id, rx_id)]
-            if sinr < 0:
-                rewards[tx_id] = log2(1 + dB_to_linear(sinr))
-            else:
-                rewards[tx_id] = -1
-        return rewards
-
-    def _rewards_shannon_cue_sinr(self, results: dict):
-        sinr_threshold_dB = 0
-        # group channels by RB
-        rbs = defaultdict(set)
-        for ids, channel in self.simulator.channels.items():
-            rbs[channel.rb].add(channel)
-
-        rewards = {}
-        for tx_id, rx_id in self.due_pairs.items():
-            channel = self.simulator.channels[(tx_id, rx_id)]
-            ix_channels = rbs[channel.rb].difference({channel})
-            rewards[tx_id] = -1
-            for ix_channel in ix_channels:
-                if ix_channel.link_type != LinkType.SIDELINK:
-                    cue_sinr_dB = results['SINRs_dB'][(ix_channel.tx.id, ix_channel.rx.id)]
-                    if cue_sinr_dB < sinr_threshold_dB:
-                        break
-            else:
-                rewards[tx_id] = log2(1 + dB_to_linear(results['SINRs_dB'][(tx_id, rx_id)]))
-        return rewards
+        return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def render(self, mode='human'):
         obs = self._get_state({})  # @todo need to find a way to handle SINRs here
@@ -279,7 +208,7 @@ class D2DEnv(gym.Env):
         common_obs.extend(rbs)
         common_obs.extend(positions)
 
-        return {due_id: np.array(common_obs) for due_id in self.due_pairs.keys()}
+        return {due_id: np.array(common_obs) for due_id in self.devices.due_pairs.keys()}
 
     def _get_state2(self, sinrs: Dict[Tuple[Id, Id], float]):
         common_obs = []
@@ -291,7 +220,7 @@ class D2DEnv(gym.Env):
             common_obs.append(sinrs[(channel.tx.id, channel.rx.id)])
 
         obs_dict = {}
-        for due_id in self.due_pairs.keys():
+        for due_id in self.devices.due_pairs.keys():
             due_pos = list(self.simulator.devices[due_id].position.as_tuple())
             due_obs = []
             due_obs.extend(due_pos)
