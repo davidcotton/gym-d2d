@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 from typing import Optional, Type
 
-from .observation_functions import ObsFunction, State1ObsFunction
-from .reward_functions import RewardFunction, SystemCapacityRewardFunction
+from .obs_fn import ObsFunction, State1ObsFunction
+from .reward_fn import RewardFunction, SystemCapacityRewardFunction
 from gym_d2d.path_loss import PathLoss, FreeSpacePathLoss
 from gym_d2d.traffic_model import TrafficModel, UplinkTrafficModel
 
