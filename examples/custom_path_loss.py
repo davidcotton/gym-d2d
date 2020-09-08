@@ -10,7 +10,8 @@ class FooPathLoss(PathLoss):
     If you have a path loss model that isn't included, why not submit a pull request so others can use it too.
     """
 
-    def __call__(self, tx: Device, rx: Device, d: float) -> float:
+    def __call__(self, tx: Device, rx: Device) -> float:
+        d = tx.position.distance(rx.position)
         foo_path_loss = 20 * log10(d) - tx.tx_antenna_gain_dBi - rx.rx_antenna_gain_dBi
         return foo_path_loss
 
