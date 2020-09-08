@@ -27,7 +27,7 @@ class EnvConfig:
     subcarrier_spacing_kHz: int = 15
     channel_bandwidth_MHz: float = 20.0
     obs_fn: Type[ObsFunction] = State1ObsFunction
-    reward_fn: RewardFunction = SystemCapacityRewardFunction()
+    reward_fn: Type[RewardFunction] = SystemCapacityRewardFunction
     compressed_info: bool = False
     device_config_file: Optional[Path] = None
 
