@@ -34,7 +34,7 @@ class D2DEnv(gym.Env):
         # +1 because include max value, i.e. from [0, ..., max]
         num_tx_pwr_actions = self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1
         self.action_space = spaces.Discrete(self.config.num_rbs * num_tx_pwr_actions)
-        self.reward_fn = self.config.reward_fn()
+        self.reward_fn = self.config.reward_fn(self.simulator, self.devices)
         self.num_steps = 0
 
     def _create_devices(self) -> Devices:
@@ -105,7 +105,7 @@ class D2DEnv(gym.Env):
         due_actions = {due_id: self._extract_action(due_id, action_idx) for due_id, action_idx in actions.items()}
         results = self.simulator.step(due_actions)
         obs = self.obs_fn.get_state(results)
-        rewards = self.reward_fn(self.simulator, self.devices, results)
+        rewards = self.reward_fn(results)
         game_over = {'__all__': False if self.num_steps < EPISODE_LENGTH else True}
         self.num_steps += 1
 
