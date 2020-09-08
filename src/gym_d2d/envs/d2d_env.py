@@ -15,6 +15,7 @@ from gym_d2d.simulator import D2DSimulator
 
 
 BASE_STATION_ID = 'mbs'
+EPISODE_LENGTH = 10
 
 
 class D2DEnv(gym.Env):
@@ -33,6 +34,7 @@ class D2DEnv(gym.Env):
         # +1 because include max value, i.e. from [0, ..., max]
         num_tx_pwr_actions = self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1
         self.action_space = spaces.Discrete(self.config.num_rbs * num_tx_pwr_actions)
+        self.num_steps = 0
 
     def _create_devices(self) -> Devices:
         """Initialise small base stations, cellular UE & D2D UE pairs in the simulator as per the env config.
@@ -74,6 +76,7 @@ class D2DEnv(gym.Env):
         return Devices(bs, cues, dues)
 
     def reset(self):
+        self.num_steps = 0
         for device in self.simulator.devices.values():
             if device.id == BASE_STATION_ID:
                 pos = Position(0, 0)  # assume MBS fixed at (0,0) and everything else builds around it
@@ -102,6 +105,8 @@ class D2DEnv(gym.Env):
         results = self.simulator.step(due_actions)
         obs = self.obs_fn.get_state(results)
         rewards = self.config.reward_fn(self.simulator, self.devices, results)
+        game_over = {'__all__': False if self.num_steps < EPISODE_LENGTH else True}
+        self.num_steps += 1
 
         info = {}
         num_cues = 0
@@ -128,8 +133,15 @@ class D2DEnv(gym.Env):
             'system_capacity_Mbps': system_capacity,
             'system_sum_rate_bps': system_sum_rate_bps,
         }
+        # for tx_id, metrics in info.items():
+        #     metrics['__env__'] = {
+        #         'mean_CUE_SINR_dB': sum_cue_sinr / num_cues,
+        #         'CUE_capacity_Mbps': sum_cue_capacity,
+        #         'system_capacity_Mbps': system_capacity,
+        #         'system_sum_rate_bps': system_sum_rate_bps
+        #     }
 
-        return obs, rewards, {'__all__': False}, info
+        return obs, rewards, game_over, info
 
     def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.config.num_rbs
