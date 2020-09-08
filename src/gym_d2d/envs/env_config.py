@@ -28,6 +28,7 @@ class EnvConfig:
     channel_bandwidth_MHz: float = 20.0
     obs_fn: Type[ObsFunction] = State1ObsFunction
     reward_fn: RewardFunction = SystemCapacityRewardFunction()
+    compressed_info: bool = False
     device_config_file: Optional[Path] = None
 
     def __post_init__(self):

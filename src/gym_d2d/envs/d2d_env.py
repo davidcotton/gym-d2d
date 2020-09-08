@@ -127,19 +127,21 @@ class D2DEnv(gym.Env):
                 num_cues += 1
                 sum_cue_sinr += sinr_dB
                 sum_cue_capacity += capacity
-        info['__env__'] = {
-            'mean_CUE_SINR_dB': sum_cue_sinr / num_cues,
-            'CUE_capacity_Mbps': sum_cue_capacity,
-            'system_capacity_Mbps': system_capacity,
-            'system_sum_rate_bps': system_sum_rate_bps,
-        }
-        # for tx_id, metrics in info.items():
-        #     metrics['__env__'] = {
-        #         'mean_CUE_SINR_dB': sum_cue_sinr / num_cues,
-        #         'CUE_capacity_Mbps': sum_cue_capacity,
-        #         'system_capacity_Mbps': system_capacity,
-        #         'system_sum_rate_bps': system_sum_rate_bps
-        #     }
+        if self.config.compressed_info:
+            for tx_id, metrics in info.items():
+                metrics['__env__'] = {
+                    'mean_CUE_SINR_dB': sum_cue_sinr / num_cues,
+                    'CUE_capacity_Mbps': sum_cue_capacity,
+                    'system_capacity_Mbps': system_capacity,
+                    'system_sum_rate_bps': system_sum_rate_bps
+                }
+        else:
+            info['__env__'] = {
+                'mean_CUE_SINR_dB': sum_cue_sinr / num_cues,
+                'CUE_capacity_Mbps': sum_cue_capacity,
+                'system_capacity_Mbps': system_capacity,
+                'system_sum_rate_bps': system_sum_rate_bps,
+            }
 
         return obs, rewards, game_over, info
 
