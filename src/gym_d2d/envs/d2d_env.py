@@ -1,56 +1,20 @@
-from dataclasses import dataclass
 import json
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Type
 
 import gym
 from gym import spaces
-import numpy as np
 
 from .devices import Devices
-from .reward_functions import RewardFunction, SystemCapacityRewardFunction
+from .env_config import EnvConfig
 from gym_d2d.action import Action
 from gym_d2d.device import BaseStation, UserEquipment
 from gym_d2d.id import Id
 from gym_d2d.link_type import LinkType
-from gym_d2d.path_loss import PathLoss, FreeSpacePathLoss
 from gym_d2d.position import Position, get_random_position, get_random_position_nearby
 from gym_d2d.simulator import D2DSimulator
-from gym_d2d.traffic_model import TrafficModel, UplinkTrafficModel
 
 
 BASE_STATION_ID = 'mbs'
-
-
-@dataclass
-class EnvConfig:
-    num_rbs: int = 30
-    num_cellular_users: int = 30
-    num_d2d_pairs: int = 12
-    num_small_base_stations: int = 0
-    cell_radius_m: float = 500.0
-    d2d_radius_m: float = 20.0
-    cue_max_tx_power_dBm: int = 23
-    due_min_tx_power_dBm: int = 0
-    due_max_tx_power_dBm: int = 23
-    path_loss_model: Type[PathLoss] = FreeSpacePathLoss
-    traffic_model: Type[TrafficModel] = UplinkTrafficModel
-    carrier_freq_GHz: float = 2.1
-    num_subcarriers: int = 12
-    subcarrier_spacing_kHz: int = 15
-    channel_bandwidth_MHz: float = 20.0
-    reward_function: RewardFunction = SystemCapacityRewardFunction()
-    device_config_file: Optional[Path] = None
-
-    def __post_init__(self):
-        self.devices = self.load_device_config()
-
-    def load_device_config(self) -> dict:
-        if isinstance(self.device_config_file, Path):
-            with self.device_config_file.open(mode='r') as fid:
-                return json.load(fid)
-        else:
-            return {}
 
 
 class D2DEnv(gym.Env):
@@ -64,22 +28,10 @@ class D2DEnv(gym.Env):
         path_loss = self.config.path_loss_model(self.config.carrier_freq_GHz)
         self.simulator = D2DSimulator(self.devices.to_dict(), traffic_model, path_loss)
 
-        num_txs = self.config.num_cellular_users + self.config.num_d2d_pairs
-
-        # get_state1
-        # num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
-        num_tx_obs = 5  # sinrs, tx_pwrs, rbs, xs, ys
-        num_rx_obs = 2  # xs, ys
-        # obs_shape = ((num_txs * num_tx_obs) + (num_rxs * num_rx_obs),)
-        obs_shape = ((num_txs * num_tx_obs) + (num_txs * num_rx_obs),)
-
-        # get_state2
-        # num_due_obs = 2  # x, y
-        # num_common_obs = 7  # tx_x, tx_y, rx_x, rx_y, tx_pwr, rb, sinr
-        # obs_shape = (num_due_obs + (num_common_obs * num_txs),)
-
-        self.observation_space = spaces.Box(low=-self.config.cell_radius_m, high=self.config.cell_radius_m, shape=obs_shape)
-        num_tx_pwr_actions = self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1  # include max value, i.e. from [0, ..., max]
+        self.obs_fn = self.config.obs_fn(self.simulator, self.devices)
+        self.observation_space = self.obs_fn.get_obs_space(self.config.__dict__)
+        # +1 because include max value, i.e. from [0, ..., max]
+        num_tx_pwr_actions = self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1
         self.action_space = spaces.Discrete(self.config.num_rbs * num_tx_pwr_actions)
 
     def _create_devices(self) -> Devices:
@@ -142,14 +94,14 @@ class D2DEnv(gym.Env):
         random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
                           for due_id in self.devices.due_pairs.keys()}
         results = self.simulator.step(random_actions)
-        obs = self._get_state(results['SINRs_dB'])
+        obs = self.obs_fn.get_state(results)
         return obs
 
     def step(self, actions):
         due_actions = {due_id: self._extract_action(due_id, action_idx) for due_id, action_idx in actions.items()}
         results = self.simulator.step(due_actions)
-        obs = self._get_state(results['SINRs_dB'])
-        rewards = self.config.reward_function(self.simulator, self.devices, results)
+        obs = self.obs_fn.get_state(results)
+        rewards = self.config.reward_fn(self.simulator, self.devices, results)
 
         info = {}
         num_cues = 0
@@ -185,49 +137,8 @@ class D2DEnv(gym.Env):
         return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def render(self, mode='human'):
-        obs = self._get_state({})  # @todo need to find a way to handle SINRs here
+        obs = self.obs_fn.get_state({})  # @todo need to find a way to handle SINRs here
         print(obs)
-
-    def _get_state(self, sinrs: Dict[Tuple[Id, Id], float]):
-        return self._get_state1(sinrs)
-        # return self._get_state2(sinrs)
-
-    def _get_state1(self, sinrs: Dict[Tuple[Id, Id], float]):
-        tx_pwrs_dBm = []
-        rbs = []
-        positions = []
-        for channel in self.simulator.channels.values():
-            tx_pwrs_dBm.append(channel.tx_pwr_dBm)
-            rbs.append(channel.rb)
-            positions.extend(list(channel.tx.position.as_tuple()))
-        for channel in self.simulator.channels.values():
-            positions.extend(list(channel.rx.position.as_tuple()))
-        common_obs = []
-        common_obs.extend(list(sinrs.values()))
-        common_obs.extend(tx_pwrs_dBm)
-        common_obs.extend(rbs)
-        common_obs.extend(positions)
-
-        return {due_id: np.array(common_obs) for due_id in self.devices.due_pairs.keys()}
-
-    def _get_state2(self, sinrs: Dict[Tuple[Id, Id], float]):
-        common_obs = []
-        for channel in self.simulator.channels.values():
-            common_obs.extend(list(channel.tx.position.as_tuple()))
-            common_obs.extend(list(channel.rx.position.as_tuple()))
-            common_obs.append(channel.tx_pwr_dBm)
-            common_obs.append(channel.rb)
-            common_obs.append(sinrs[(channel.tx.id, channel.rx.id)])
-
-        obs_dict = {}
-        for due_id in self.devices.due_pairs.keys():
-            due_pos = list(self.simulator.devices[due_id].position.as_tuple())
-            due_obs = []
-            due_obs.extend(due_pos)
-            due_obs.extend(common_obs)
-            obs_dict[due_id] = np.array(due_obs)
-
-        return obs_dict
 
     def save_device_config(self, config_file: Path) -> None:
         """Save the environment's device configuration in a JSON file.
