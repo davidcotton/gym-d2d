@@ -5,7 +5,17 @@ While Gym is designed for reinforcement learning, its easy to adapt  to your opt
 
 This environment models a cellular offload scenario containing a single macro base station and multiple cellular (CUE) and D2D (DUE) user equipment. 
 Supports different (and custom) path loss and traffic models.
-In the future we aim to support multiple small base stations and different optimisation objectives, e.g. energy efficiency.
+In the future we aim to support heterogeneous networks and different optimisation objectives, e.g. energy efficiency.
+
+
+## Contents
+- [Requirements](#requirements)
+- [Installation](#installation)
+  - [Dev Installation](#dev-installation)
+- [Usage](#usage)
+  - [Environment configuration](#environment-configuration)
+  - [Device Configuration](#device-configuration)
+- [Examples](examples)
 
 
 ## Requirements
@@ -39,7 +49,7 @@ Then run in the standard Gym observation, action, reward loop.
 
     obs_dict = env.reset()
     game_over = False
-    for _ in range(100):
+    while not game_over:
         actions_dict = {}
         for agent_id, obs in obs_dict.items():
             action = env.action_space.sample()  # or: action = agent.act(obs)
