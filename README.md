@@ -17,8 +17,10 @@ If you have found this project useful in your research, please consider citing.
 - [Installation](#installation)
   - [Dev Installation](#dev-installation)
 - [Usage](#usage)
+- [Configuration](#configuration)
   - [Environment configuration](#environment-configuration)
   - [Device Configuration](#device-configuration)
+  - [Observations and Rewards Configuration](#observations-and-rewards-configuration)
 - [Examples](examples)
 
 
@@ -68,6 +70,10 @@ There are two main differences with this environment to the usual classic contro
 
 We have some common usage examples in the [examples directory](examples).
 
+
+## Configuration
+One of the design principles of this project is that environments should be easily configurable and customisable to meet the variety of research needs present in D2D cellular offload research.
+
 ### Environment configuration
 Following the Gym API (gym>=0.9.6), you can configure the environment via an env_config dictionary.
 
@@ -113,3 +119,6 @@ To load from an existing configuration:
     env_config = {'device_config_file': Path.cwd() / 'device_config.json'}
     env = gym.make('D2DEnv-v0', env_config=env_config)
 
+
+### Observations and Rewards Configuration
+More info coming soon on how to customise observations and rewards...
