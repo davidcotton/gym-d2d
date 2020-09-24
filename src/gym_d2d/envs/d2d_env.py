@@ -106,7 +106,7 @@ class D2DEnv(gym.Env):
         results = self.simulator.step(due_actions)
         obs = self.obs_fn.get_state(results)
         rewards = self.reward_fn(results)
-        game_over = {'__all__': False if self.num_steps < EPISODE_LENGTH else True}
+        game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
         self.num_steps += 1
 
         info = {}
