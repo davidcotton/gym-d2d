@@ -42,7 +42,7 @@ class SystemCapacityRewardFunction(RewardFunction):
                     brake = True
                     break
         else:
-            sum_capacity = sum(c for c in results['capacity_Mbps'].values())
+            sum_capacity = sum(results['capacity_Mbps'].values())
             reward = sum_capacity / len(self.devices.due_pairs)
 
         rewards = {}
