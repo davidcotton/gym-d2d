@@ -30,8 +30,8 @@ class D2DSimulator:
         return {
             'SINRs_dB': SINRs_dB,
             'SNRs_dB': self._calculate_SNRs(),
-            'capacity_Mbps': capacities,
             'sum_rate_bps': self._calculate_sum_rate(SINRs_dB),
+            'capacity_Mbps': capacities,
         }
 
     def _generate_traffic(self, actions: Dict[Id, Action]) -> None:
@@ -80,18 +80,6 @@ class D2DSimulator:
             SNRs_dB[ids] = rx_pwr_dBm - rx.thermal_noise_dBm
         return SNRs_dB
 
-    def _calculate_network_capacity(self, SINRs_dB: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
-        capacities_Mbps = {}
-        for (tx_id, rx_id), SINR_dB in SINRs_dB.items():
-            tx, rx = self.devices[tx_id], self.devices[rx_id]
-            # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
-            if SINR_dB > rx.rx_sensitivity_dBm:
-                B = tx.rb_bandwidth_kHz * 1000
-                capacities_Mbps[(tx_id, rx_id)] = 1e-6 * B * log2(1 + dB_to_linear(SINR_dB))
-            else:
-                capacities_Mbps[(tx_id, rx_id)] = 0
-        return capacities_Mbps
-
     def _calculate_sum_rate(self, SINRs_dB: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         sum_rate_bps = {}
         for (tx_id, rx_id), SINR_dB in SINRs_dB.items():
@@ -117,3 +105,15 @@ class D2DSimulator:
             else:
                 capacities[(tx_id, rx_id)] = 0
         return capacities
+
+    def _calculate_network_capacity(self, SINRs_dB: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
+        capacities_Mbps = {}
+        for (tx_id, rx_id), SINR_dB in SINRs_dB.items():
+            tx, rx = self.devices[tx_id], self.devices[rx_id]
+            # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
+            if SINR_dB > rx.rx_sensitivity_dBm:
+                B = tx.rb_bandwidth_kHz * 1000
+                capacities_Mbps[(tx_id, rx_id)] = 1e-6 * B * log2(1 + dB_to_linear(SINR_dB))
+            else:
+                capacities_Mbps[(tx_id, rx_id)] = 0
+        return capacities_Mbps
