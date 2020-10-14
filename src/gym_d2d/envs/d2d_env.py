@@ -118,9 +118,9 @@ class D2DEnv(gym.Env):
             system_sum_rate_bps += results['sum_rate_bps'][(tx_id, rx_id)]
             if tx_id in self.devices.due_pairs:
                 info[tx_id] = {
-                    'rb': due_actions[tx_id].rb,
-                    'tx_pwr_dBm': due_actions[tx_id].tx_pwr_dBm,
-                    'DUE_SINR_dB': sinr_dB,
+                    'rb': due_actions[tx_id].rb.item(),
+                    'tx_pwr_dBm': due_actions[tx_id].tx_pwr_dBm.item(),
+                    'DUE_SINR_dB': sinr_dB.item(),
                     'DUE_capacity_Mbps': capacity,
                     'total_DUE_sum_rate_bps': results['sum_rate_bps'][(tx_id, rx_id)]
                 }
