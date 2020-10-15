@@ -45,7 +45,7 @@ class State1ObsFunction(ObsFunction):
         for channel in self.simulator.channels.values():
             positions.extend(list(channel.rx.position.as_tuple()))
         common_obs = []
-        common_obs.extend(list(results['SINRs_dB'].values()))
+        common_obs.extend(list(results['sinrs_db'].values()))
         common_obs.extend(tx_pwrs_dBm)
         common_obs.extend(rbs)
         common_obs.extend(positions)
@@ -68,7 +68,7 @@ class State2ObsFunction(ObsFunction):
             common_obs.extend(list(channel.rx.position.as_tuple()))
             common_obs.append(channel.tx_pwr_dBm)
             common_obs.append(channel.rb)
-            common_obs.append(results['SINRs_dB'][(channel.tx.id, channel.rx.id)])
+            common_obs.append(results['sinrs_db'][(channel.tx.id, channel.rx.id)])
 
         obs_dict = {}
         for due_id in self.devices.due_pairs.keys():

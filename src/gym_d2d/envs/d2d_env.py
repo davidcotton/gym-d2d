@@ -110,39 +110,43 @@ class D2DEnv(gym.Env):
         self.num_steps += 1
 
         info = {}
-        num_cues = 0
-        sum_cue_sinr, sum_cue_capacity, system_capacity = 0.0, 0.0, 0.0
-        system_sum_rate_bps = 0.0
-        for ((tx_id, rx_id), sinr_dB), capacity in zip(results['SINRs_dB'].items(), results['capacity_Mbps'].values()):
-            system_capacity += capacity
-            system_sum_rate_bps += results['sum_rate_bps'][(tx_id, rx_id)]
+        sum_cue_sinr, sum_system_sinr = 0.0, 0.0
+        sum_cue_rate_bps, sum_due_rate_bps, sum_system_rate_bps = 0.0, 0.0, 0.0
+        sum_cue_capacity, sum_due_capacity, sum_system_capacity = 0.0, 0.0, 0.0
+        for ((tx_id, rx_id), sinr_db), capacity in zip(results['sinrs_db'].items(), results['capacity_mbps'].values()):
+            sum_system_sinr += sinr_db
+            sum_system_rate_bps += results['rate_bps'][(tx_id, rx_id)]
+            sum_system_capacity += capacity
             if tx_id in self.devices.due_pairs:
                 info[tx_id] = {
                     'rb': due_actions[tx_id].rb.item(),
-                    'tx_pwr_dBm': due_actions[tx_id].tx_pwr_dBm.item(),
-                    'DUE_SINR_dB': sinr_dB.item(),
-                    'DUE_capacity_Mbps': capacity,
-                    'total_DUE_sum_rate_bps': results['sum_rate_bps'][(tx_id, rx_id)]
+                    'tx_pwr_dbm': due_actions[tx_id].tx_pwr_dBm.item(),
+                    'due_sinr_db': sinr_db,
+                    'due_rate_bps': results['rate_bps'][(tx_id, rx_id)],
+                    'due_capacity_mbps': capacity,
                 }
+                sum_due_rate_bps += results['rate_bps'][(tx_id, rx_id)]
+                sum_due_capacity += capacity
             else:
-                num_cues += 1
-                sum_cue_sinr += sinr_dB
+                sum_cue_sinr += sinr_db
+                sum_cue_rate_bps += results['rate_bps'][(tx_id, rx_id)]
                 sum_cue_capacity += capacity
+
+        aggregate_info = {
+            'env_mean_cue_sinr_db': sum_cue_sinr / len(self.devices.cues),
+            'env_mean_system_sinr_db': sum_system_sinr / (len(self.devices.cues) + len(self.devices.due_pairs)),
+            'env_sum_cue_rate_bps': sum_cue_rate_bps,
+            'env_sum_due_rate_bps': sum_due_rate_bps,
+            'env_sum_system_rate_bps': sum_system_rate_bps,
+            'env_sum_cue_capacity_mbps': sum_cue_capacity,
+            'env_sum_due_capacity_mbps': sum_due_capacity,
+            'env_sum_system_capacity_mbps': sum_system_capacity,
+        }
         if self.config.compressed_info:
-            for tx_id, metrics in info.items():
-                metrics['__env__'] = {
-                    'mean_CUE_SINR_dB': sum_cue_sinr / num_cues,
-                    'CUE_capacity_Mbps': sum_cue_capacity,
-                    'system_capacity_Mbps': system_capacity,
-                    'system_sum_rate_bps': system_sum_rate_bps
-                }
+            for tx_id, tx_info in info.items():
+                tx_info.update(aggregate_info)
         else:
-            info['__env__'] = {
-                'mean_CUE_SINR_dB': sum_cue_sinr / num_cues,
-                'CUE_capacity_Mbps': sum_cue_capacity,
-                'system_capacity_Mbps': system_capacity,
-                'system_sum_rate_bps': system_sum_rate_bps,
-            }
+            info['__env__'] = aggregate_info
 
         return obs, rewards, game_over, info
 

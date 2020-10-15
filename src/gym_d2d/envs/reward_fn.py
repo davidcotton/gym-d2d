@@ -38,11 +38,11 @@ class SystemCapacityRewardFunction(RewardFunction):
             for ix_tx_id, ix_rx_id in ix_channels:
                 if ix_tx_id in self.devices.due_pairs:
                     continue
-                if results['capacity_Mbps'][(ix_tx_id, ix_rx_id)] <= 0:
+                if results['capacity_mbps'][(ix_tx_id, ix_rx_id)] <= 0:
                     brake = True
                     break
         else:
-            sum_capacity = sum(results['capacity_Mbps'].values())
+            sum_capacity = sum(results['capacity_mbps'].values())
             reward = sum_capacity / len(self.devices.due_pairs)
 
         rewards = {}
@@ -55,7 +55,7 @@ class SimpleShannonRewardFunction(RewardFunction):
     def __call__(self, results: dict) -> Dict[Id, float]:
         rewards = {}
         for tx_id, rx_id in self.devices.due_pairs.items():
-            sinr = results['SINRs_dB'][(tx_id, rx_id)]
+            sinr = results['sinrs_db'][(tx_id, rx_id)]
             if sinr < 0:
                 rewards[tx_id] = log2(1 + dB_to_linear(sinr))
             else:
@@ -64,8 +64,8 @@ class SimpleShannonRewardFunction(RewardFunction):
 
 
 class ShannonCueSinrRewardFunction(RewardFunction):
-    def __init__(self, sinr_threshold_dB=0.0) -> None:
-        super().__init__()
+    def __init__(self, simulator: D2DSimulator, devices: Devices, sinr_threshold_dB=0.0) -> None:
+        super().__init__(simulator, devices)
         self.sinr_threshold_dB: float = float(sinr_threshold_dB)
 
     def __call__(self, results: dict) -> Dict[Id, float]:
@@ -81,10 +81,10 @@ class ShannonCueSinrRewardFunction(RewardFunction):
             rewards[tx_id] = -1
             for ix_channel in ix_channels:
                 if ix_channel.link_type != LinkType.SIDELINK:
-                    cue_sinr_dB = results['SINRs_dB'][(ix_channel.tx.id, ix_channel.rx.id)]
+                    cue_sinr_dB = results['sinrs_db'][(ix_channel.tx.id, ix_channel.rx.id)]
                     if cue_sinr_dB < self.sinr_threshold_dB:
                         break
             else:
-                rewards[tx_id] = log2(1 + dB_to_linear(results['SINRs_dB'][(tx_id, rx_id)]))
+                rewards[tx_id] = log2(1 + dB_to_linear(results['sinrs_db'][(tx_id, rx_id)]))
         return rewards
 
