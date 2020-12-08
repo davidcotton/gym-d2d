@@ -5,7 +5,7 @@ from typing import Optional, Type
 
 from .obs_fn import ObsFunction, State1ObsFunction
 from .reward_fn import RewardFunction, SystemCapacityRewardFunction
-from gym_d2d.path_loss import PathLoss, FreeSpacePathLoss
+from gym_d2d.path_loss import PathLoss, LogDistancePathLoss
 from gym_d2d.traffic_model import TrafficModel, UplinkTrafficModel
 
 
@@ -20,7 +20,7 @@ class EnvConfig:
     cue_max_tx_power_dBm: int = 23
     due_min_tx_power_dBm: int = 0
     due_max_tx_power_dBm: int = 23
-    path_loss_model: Type[PathLoss] = FreeSpacePathLoss
+    path_loss_model: Type[PathLoss] = LogDistancePathLoss
     traffic_model: Type[TrafficModel] = UplinkTrafficModel
     carrier_freq_GHz: float = 2.1
     num_subcarriers: int = 12
