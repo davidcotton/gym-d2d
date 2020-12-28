@@ -91,9 +91,9 @@ The environment has the following configuration options:
 | cue_max_tx_power_dBm | The maximum CUE transmission power in dBm. This is a discrete value, from 0 to max. | `int` | 23 |
 | due_min_tx_power_dBm | The minimum DUE transmission power in dBm. | `int` | 0 |
 | due_max_tx_power_dBm | The maximum DUE transmission power in dBm. | `int` | 23 |
-| path_loss_model | The type of path loss model to use. | `gym_d2d.PathLoss` | `gym_d2d.LogDistancePathLoss` |
-| traffic_model | The model to generate automated traffic. | `gym_d2d.TrafficModel` | `gym_d2d.UplinkTrafficModel` |
-| reward_function | The function to calculate agent rewards. | `gym_d2d.envs.RewardFunction` | `gym_d2d.envs.SystemCapacityRewardFunction` |
+| path_loss_model | The type of path loss model to use. | `gym_d2d.` `PathLoss` | `gym_d2d.` `LogDistancePathLoss` |
+| traffic_model | The model to generate automated traffic. | `gym_d2d.` `TrafficModel` | `gym_d2d.` `UplinkTrafficModel` |
+| reward_function | The function to calculate agent rewards. | `gym_d2d.envs.` `RewardFunction` | `gym_d2d.envs.` `SystemCapacityRewardFunction` |
 | carrier_freq_GHz | The carrier frequency used, in GHz. | `float` | 2.1 |
 | num_subcarriers | The number of subcarriers. | `int` | 12 |
 | subcarrier_spacing_kHz | The spacing between subcarriers. | `int` | 15 |
