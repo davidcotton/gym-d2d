@@ -50,7 +50,8 @@ class Linear1ObsFunction(ObsFunction):
         common_obs.extend(rbs)
         common_obs.extend(positions)
 
-        return {due_id: np.array(common_obs) for due_id in self.devices.due_pairs.keys()}
+        # return {due_id: np.array(common_obs) for due_id in self.devices.due_pairs.keys()}
+        return {tx_id: np.array(common_obs) for tx_id, _ in results['sinrs_db'].keys()}
 
 
 class Linear2ObsFunction(ObsFunction):

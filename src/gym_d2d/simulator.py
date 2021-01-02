@@ -36,7 +36,8 @@ class D2DSimulator:
 
     def _generate_traffic(self, actions: Dict[Id, Action]) -> None:
         # automated traffic
-        self.channels = self.traffic_model.get_traffic()
+        # self.channels = self.traffic_model.get_traffic()
+        self.channels = {}
         # supplied actions
         for action in actions.values():
             tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]

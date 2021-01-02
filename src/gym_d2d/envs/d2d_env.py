@@ -95,9 +95,12 @@ class D2DEnv(gym.Env):
             device.set_position(pos)
 
         self.simulator.reset()
+        # # take a step with random D2D actions to generate initial SINRs
+        # random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
+        #                   for due_id in self.devices.due_pairs.keys()}
         # take a step with random D2D actions to generate initial SINRs
-        random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
-                          for due_id in self.devices.due_pairs.keys()}
+        ues = list(self.devices.cues.keys()) + list(self.devices.due_pairs.keys())
+        random_actions = {ue_id: self._extract_action(ue_id, self.action_space.sample()) for ue_id in ues}
         results = self.simulator.step(random_actions)
         obs = self.obs_fn.get_state(results)
         return obs
@@ -151,10 +154,20 @@ class D2DEnv(gym.Env):
 
         return obs, rewards, game_over, info
 
-    def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
+    def _extract_action(self, tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.config.num_rbs
-        tx_pwr_dBm = (action_idx // self.config.num_rbs) + self.config.due_min_tx_power_dBm
-        return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
+        # tx_pwr_dBm = (action_idx // self.config.num_rbs) + self.config.due_min_tx_power_dBm
+        # return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
+        if tx_id in self.devices.cues:
+            rx_id = self.devices.bs.id
+            tx_pwr_dBm = (action_idx // self.config.num_rbs)
+        elif tx_id in self.devices.due_pairs:
+            rx_id = self.devices.due_pairs[tx_id]
+            tx_pwr_dBm = (action_idx // self.config.num_rbs) + self.config.due_min_tx_power_dBm
+        else:
+            rx_id = self.devices.cues[tx_id]
+            tx_pwr_dBm = (action_idx // self.config.num_rbs)
+        return Action(tx_id, rx_id, LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def render(self, mode='human'):
         obs = self.obs_fn.get_state({})  # @todo need to find a way to handle SINRs here
