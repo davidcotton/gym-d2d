@@ -29,9 +29,9 @@ class SystemCapacityRewardFunction(RewardFunction):
             rbs[channel.rb].add(ids)
 
         reward = -1
-        brake = False
+        _break = False
         for tx_id, rx_id in self.devices.due_pairs.items():
-            if brake:
+            if _break:
                 break
             rb = self.simulator.channels[(tx_id, rx_id)].rb
             ix_channels = rbs[rb].difference({(tx_id, rx_id)})
@@ -39,16 +39,13 @@ class SystemCapacityRewardFunction(RewardFunction):
                 if ix_tx_id in self.devices.due_pairs:
                     continue
                 if results['capacity_mbps'][(ix_tx_id, ix_rx_id)] <= 0:
-                    brake = True
+                    _break = True
                     break
         else:
             sum_capacity = sum(results['capacity_mbps'].values())
             reward = sum_capacity / len(self.devices.due_pairs)
 
-        rewards = {}
-        for tx_id, rx_id in self.devices.due_pairs.items():
-            rewards[tx_id] = reward
-        return rewards
+        return {tx_id: reward for tx_id in self.devices.due_pairs.keys()}
 
 
 class SimpleShannonRewardFunction(RewardFunction):
