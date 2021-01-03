@@ -164,11 +164,9 @@ class D2DEnv(gym.Env):
 
         :param config_file: The filepath to save to.
         """
-        config = {}
-        for device in self.simulator.devices.values():
-            config[device.id] = {
+        config = {device.id: {
                 'position': device.position.as_tuple(),
                 'config': device.config,
-            }
+            } for device in self.simulator.devices.values()}
         with config_file.open(mode='w') as fid:
             json.dump(config, fid)
