@@ -48,12 +48,16 @@ class SystemCapacityRewardFunction(RewardFunction):
         return {tx_id: reward for tx_id in self.devices.due_pairs.keys()}
 
 
-class SimpleShannonRewardFunction(RewardFunction):
+class DueShannonRewardFunction(RewardFunction):
+    def __init__(self, simulator: D2DSimulator, devices: Devices) -> None:
+        super().__init__(simulator, devices)
+        self.min_sinr = -70.0
+
     def __call__(self, results: dict) -> Dict[Id, float]:
         rewards = {}
         for tx_id, rx_id in self.devices.due_pairs.items():
             sinr = results['sinrs_db'][(tx_id, rx_id)]
-            if sinr < 0:
+            if sinr >= self.min_sinr:
                 rewards[tx_id] = log2(1 + dB_to_linear(sinr))
             else:
                 rewards[tx_id] = -1
