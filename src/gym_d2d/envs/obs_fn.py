@@ -24,7 +24,7 @@ class ObsFunction(ABC):
         pass
 
 
-class State1ObsFunction(ObsFunction):
+class Linear1ObsFunction(ObsFunction):
     def get_obs_space(self, env_config: dict) -> Space:
         num_txs = env_config['num_cellular_users'] + env_config['num_d2d_pairs']
         # num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
@@ -53,7 +53,7 @@ class State1ObsFunction(ObsFunction):
         return {due_id: np.array(common_obs) for due_id in self.devices.due_pairs.keys()}
 
 
-class State2ObsFunction(ObsFunction):
+class Linear2ObsFunction(ObsFunction):
     def get_obs_space(self, env_config: dict) -> Space:
         num_txs = env_config['num_cellular_users'] + env_config['num_d2d_pairs']
         num_due_obs = 2  # x, y
