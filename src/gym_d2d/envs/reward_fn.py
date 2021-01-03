@@ -64,7 +64,7 @@ class DueShannonRewardFunction(RewardFunction):
         return rewards
 
 
-class ShannonCueSinrRewardFunction(RewardFunction):
+class CueSinrShannonRewardFunction(RewardFunction):
     def __init__(self, simulator: D2DSimulator, devices: Devices, sinr_threshold_dB=0.0) -> None:
         super().__init__(simulator, devices)
         self.sinr_threshold_dB: float = float(sinr_threshold_dB)
