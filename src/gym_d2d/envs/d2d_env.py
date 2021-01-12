@@ -104,10 +104,10 @@ class D2DEnv(gym.Env):
     def step(self, actions):
         due_actions = {due_id: self._extract_action(due_id, action_idx) for due_id, action_idx in actions.items()}
         results = self.simulator.step(due_actions)
+        self.num_steps += 1
         obs = self.obs_fn.get_state(results)
         rewards = self.reward_fn(results)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
-        self.num_steps += 1
 
         info = {}
         sum_cue_sinr, sum_system_sinr = 0.0, 0.0
