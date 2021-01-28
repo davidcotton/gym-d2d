@@ -5,6 +5,8 @@ setup(
     name='gym_d2d',
     version='0.0.1',
     description='Device-to-Device (D2D) communication OpenAI Gym environment',
+    keywords='open ai gym environment rl agent d2d cellular offload resource allocation',
+    url='https://github.com/davidcotton/gym-d2d',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
     packages=find_packages(where='src'),
