@@ -30,7 +30,7 @@ If you have found this project useful in your research, please consider citing.
 - NumPy
 
 ## Installation
-Use pip to install the git repo
+Use pip to install
 
     pip install gym-d2d
 
