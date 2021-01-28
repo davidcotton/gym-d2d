@@ -32,7 +32,7 @@ If you have found this project useful in your research, please consider citing.
 ## Installation
 Use pip to install the git repo
 
-    pip install git+ssh://git@github.com/davidcotton/gym-d2d@master#egg=gym-d2d
+    pip install gym-d2d
 
 ### Dev Installation
 Or, if you need to edit the source code, clone and install dev dependencies:
