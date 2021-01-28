@@ -13,7 +13,7 @@ setup(
     package_dir={'': 'src'},
     install_requires=['gym>=0.9.6', 'numpy'],
     extras_require={
-        'dev': ['pytest', 'pytest-cov', 'pytest-sugar']
+        'dev': ['flake8', 'pytest', 'pytest-cov', 'pytest-sugar']
     },
     clasifiers=[
         'Programming Language :: Python :: 3',

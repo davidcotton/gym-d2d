@@ -88,4 +88,3 @@ class CueSinrShannonRewardFunction(RewardFunction):
             else:
                 rewards[tx_id] = log2(1 + dB_to_linear(results['sinrs_db'][(tx_id, rx_id)]))
         return rewards
-

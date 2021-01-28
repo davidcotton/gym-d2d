@@ -25,7 +25,8 @@ class D2DEnv(gym.Env):
         super().__init__()
         self.config = EnvConfig(**env_config or {})
         self.devices = self._create_devices()
-        traffic_model = self.config.traffic_model(self.devices.bs, list(self.devices.cues.values()), self.config.num_rbs)
+        traffic_model = self.config.traffic_model(self.devices.bs, list(self.devices.cues.values()),
+                                                  self.config.num_rbs)
         path_loss = self.config.path_loss_model(self.config.carrier_freq_GHz)
         self.simulator = D2DSimulator(self.devices.to_dict(), traffic_model, path_loss)
 
@@ -102,7 +103,7 @@ class D2DEnv(gym.Env):
         return obs
 
     def step(self, actions):
-        due_actions = {due_id: self._extract_action(due_id, action_idx) for due_id, action_idx in actions.items()}
+        due_actions = {due_id: self._extract_action(due_id, int(action_idx)) for due_id, action_idx in actions.items()}
         results = self.simulator.step(due_actions)
         self.num_steps += 1
         obs = self.obs_fn.get_state(results)
@@ -119,8 +120,8 @@ class D2DEnv(gym.Env):
             sum_system_capacity += capacity
             if tx_id in self.devices.due_pairs:
                 info[tx_id] = {
-                    'rb': due_actions[tx_id].rb.item(),
-                    'tx_pwr_dbm': due_actions[tx_id].tx_pwr_dBm.item(),
+                    'rb': due_actions[tx_id].rb,
+                    'tx_pwr_dbm': due_actions[tx_id].tx_pwr_dBm,
                     'due_sinr_db': sinr_db,
                     'due_rate_bps': results['rate_bps'][(tx_id, rx_id)],
                     'due_capacity_mbps': capacity,

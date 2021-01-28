@@ -171,5 +171,3 @@ class UserEquipment(Device):
 
     def __repr__(self) -> str:
         return f'<UE:{self.id}>'
-
-

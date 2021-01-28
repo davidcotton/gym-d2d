@@ -64,7 +64,8 @@ class D2DSimulator:
             # noise_mW = dB_to_linear(rx.thermal_noise_dBm)  # @todo this can be memoized
             # ix_and_noise_mW = sum_ix_pwr_mW + noise_mW
             # sinrs_db[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(ix_and_noise_mW)
-            sinrs_db[(tx_id, rx_id)] = float(rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm)))
+            sinrs_db[(tx_id, rx_id)] = \
+                float(rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm)))
         return sinrs_db
 
     def _calculate_snrs(self) -> Dict[Tuple[Id, Id], float]:
@@ -83,7 +84,7 @@ class D2DSimulator:
     def _calculate_rates(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         rates_bps = {}
         for (tx_id, rx_id), sinr_db in sinrs_db.items():
-            tx, rx = self.devices[tx_id], self.devices[rx_id]
+            _, rx = self.devices[tx_id], self.devices[rx_id]
             # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
             if sinr_db > rx.rx_sensitivity_dBm:
                 rates_bps[(tx_id, rx_id)] = float(log2(1 + dB_to_linear(sinr_db)))
@@ -96,7 +97,7 @@ class D2DSimulator:
         num_rbs = 100  # 100RBs @ 20MHz channel bandwidth
         num_re = 12 * 7 * 2  # num_subcarriers * num_symbols (short CP) * num_slots/subframe
         for (tx_id, rx_id), sinr_dB in sinrs_db.items():
-            tx, rx = self.devices[tx_id], self.devices[rx_id]
+            _, rx = self.devices[tx_id], self.devices[rx_id]
             if sinr_dB > rx.rx_sensitivity_dBm:
                 num_bits = 6  # 64QAM
                 capacity_b_per_ms = num_rbs * num_re * num_bits

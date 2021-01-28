@@ -16,7 +16,7 @@ def merge_dicts(original: dict, other: dict) -> dict:
     return original
 
 
-def plot_devices(env, out_file: str=''):
+def plot_devices(env, out_file: str = ''):
     try:
         import matplotlib.pyplot as plt
     except ImportError:
