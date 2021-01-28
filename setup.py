@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='gym_d2d',
-    version='0.1.0',
+    version='0.0.1',
     description='Device-to-Device (D2D) communication OpenAI Gym environment',
     long_description=open('README.md').read(),
     long_description_content_type='text/markdown',
