@@ -8,9 +8,15 @@ GymD2D models a D2D cellular offload scenario containing a single macro base sta
 This project is still under active development and we haven't finished the first stable release yet.
 _Some functionality, such as `env.render()` are not currently working._
 
-We are currently in the process of writing a white paper for this project and will update this readme when the paper is published.
-If you have found this project useful in your research, please consider citing.
-
+If you have found this project useful in your research, please consider citing our [white paper](https://arxiv.org/abs/2101.11188) (preprint, forthcoming at [IEEE WCNC 2021](https://wcnc2021.ieee-wcnc.org/)).
+```bibtex
+@article{cotton2021gymd2d,
+  title={GymD2D: A Device-to-Device Underlay Cellular Offload Evaluation Platform},
+  author={Cotton, David and Chaczko, Zenon},
+  journal={arXiv preprint arXiv:2101.11188},
+  year={2021}
+}
+```
 
 ## Contents
 - [Requirements](#requirements)
