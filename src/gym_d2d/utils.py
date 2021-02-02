@@ -44,6 +44,6 @@ def plot_devices(env, out_file: str = ''):
     ax.scatter(cue_xs, cue_ys, c='b', label='CUE')
     ax.scatter(mbs_pos.x, mbs_pos.y, c='k', label='MBS')
     ax.legend()
-    plt.show()
     if out_file:
         plt.savefig(out_file)
+    plt.show()
