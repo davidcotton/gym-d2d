@@ -56,7 +56,7 @@ class D2DEnv(gym.Env):
         # create cellular UEs
         cues = {}
         default_cue_cfg = {**base_cfg, **{'max_tx_power_dBm': self.config.cue_max_tx_power_dBm}}
-        for i in range(self.config.num_cellular_users):
+        for i in range(self.config.num_cues):
             cue_id = Id(f'cue{i:02d}')
             config = self.config.devices[cue_id]['config'] if cue_id in self.config.devices else default_cue_cfg
             cues[cue_id] = UserEquipment(cue_id, config)
@@ -64,7 +64,7 @@ class D2DEnv(gym.Env):
         # create D2D UEs
         dues = {}
         due_cfg = {**base_cfg, **{'max_tx_power_dBm': self.config.due_max_tx_power_dBm}}
-        for i in range(0, (self.config.num_d2d_pairs * 2), 2):
+        for i in range(0, (self.config.num_due_pairs * 2), 2):
             due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
 
             due_tx_config = self.config.devices[due_tx_id]['config'] if due_tx_id in self.config.devices else due_cfg

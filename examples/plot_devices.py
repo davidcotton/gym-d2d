@@ -12,8 +12,8 @@ from gym_d2d import plot_devices
 # create a new environment, optionally load a device configuration from file,
 # and use `reset()` to initialise the environment
 env_config = {
-    'num_cellular_users': 15,
-    'num_d2d_pairs': 15,
+    'num_cues': 15,
+    'num_due_pairs': 15,
     'cell_radius_m': 500.0,
     'd2d_radius_m': 50.0,
     # 'device_config_file': Path.cwd() / 'device_config.json'
