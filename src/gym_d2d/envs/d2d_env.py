@@ -156,18 +156,8 @@ class D2DEnv(gym.Env):
 
     def _extract_action(self, tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.config.num_rbs
-        # tx_pwr_dBm = (action_idx // self.config.num_rbs) + self.config.due_min_tx_power_dBm
-        # return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
-        if tx_id in self.devices.cues:
-            rx_id = self.devices.bs.id
-            tx_pwr_dBm = (action_idx // self.config.num_rbs)
-        elif tx_id in self.devices.due_pairs:
-            rx_id = self.devices.due_pairs[tx_id]
-            tx_pwr_dBm = (action_idx // self.config.num_rbs) + self.config.due_min_tx_power_dBm
-        else:
-            rx_id = self.devices.cues[tx_id]
-            tx_pwr_dBm = (action_idx // self.config.num_rbs)
-        return Action(tx_id, rx_id, LinkType.SIDELINK, rb, tx_pwr_dBm)
+        tx_pwr_dBm = (action_idx // self.config.num_rbs) + self.config.due_min_tx_power_dBm
+        return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def render(self, mode='human'):
         obs = self.obs_fn.get_state({})  # @todo need to find a way to handle SINRs here
@@ -184,3 +174,53 @@ class D2DEnv(gym.Env):
             } for device in self.simulator.devices.values()}
         with config_file.open(mode='w') as fid:
             json.dump(config, fid)
+
+
+class MultiAgentD2DEnv(D2DEnv):
+    def __init__(self, env_config=None) -> None:
+        super().__init__(env_config)
+        # +1 because include max value, i.e. from [0, ..., max]
+        self.num_due_pwr_actions = self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1
+        self.due_action_space = spaces.Discrete(self.config.num_rbs * self.num_due_pwr_actions)
+        self.num_cue_pwr_actions = self.config.cue_max_tx_power_dBm + 1
+        self.cue_action_space = spaces.Discrete(self.config.num_rbs * self.num_cue_pwr_actions)
+        self.num_mbs_pwr_actions = self.config.mbs_max_tx_power_dBm + 1
+        self.mbs_action_space = spaces.Discrete(self.config.num_rbs * self.num_mbs_pwr_actions)
+
+    def step(self, actions):
+        actions = {tx_id: self._extract_action(tx_id, int(action_idx)) for tx_id, action_idx in actions.items()}
+        results = self.simulator.step(actions)
+        self.num_steps += 1
+        obs = self.obs_fn.get_state(results)
+        rewards = self.reward_fn(results)
+        game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
+
+        info = {}
+        for ((tx_id, rx_id), sinr_db), capacity in zip(results['sinrs_db'].items(), results['capacity_mbps'].values()):
+            info[tx_id] = {
+                'rb': actions[tx_id].rb,
+                'tx_pwr_dbm': actions[tx_id].tx_pwr_dBm,
+                'sinr_db': sinr_db,
+                'rate_bps': results['rate_bps'][(tx_id, rx_id)],
+                'capacity_mbps': capacity,
+            }
+
+        return obs, rewards, game_over, info
+
+    def _extract_action(self, tx_id: Id, action_idx: int) -> Action:
+        if tx_id in self.devices.due_pairs:
+            rx_id = self.devices.due_pairs[tx_id]
+            link_type = LinkType.UPLINK
+            rb = action_idx // self.num_due_pwr_actions
+            tx_pwr_dBm = action_idx % self.num_due_pwr_actions
+        elif tx_id in self.devices.cues:
+            rx_id = self.devices.bs.id
+            link_type = LinkType.SIDELINK
+            rb = action_idx // self.num_cue_pwr_actions
+            tx_pwr_dBm = action_idx % self.num_cue_pwr_actions
+        else:
+            rx_id = self.devices.cues[tx_id]
+            link_type = LinkType.DOWNLINK
+            rb = action_idx // self.num_mbs_pwr_actions
+            tx_pwr_dBm = action_idx % self.num_mbs_pwr_actions
+        return Action(tx_id, rx_id, link_type, rb, tx_pwr_dBm)
