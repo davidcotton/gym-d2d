@@ -26,8 +26,8 @@ class ObsFunction(ABC):
 
 class Linear1ObsFunction(ObsFunction):
     def get_obs_space(self, env_config: dict) -> Space:
-        num_txs = env_config['num_cellular_users'] + env_config['num_d2d_pairs']
-        # num_rxs = 1 + self.num_d2d_pairs  # basestation + num D2D rxs
+        num_txs = env_config['num_cues'] + env_config['num_due_pairs']
+        # num_rxs = 1 + self.num_due_pairs  # basestation + num D2D rxs
         num_tx_obs = 5  # sinrs, tx_pwrs, rbs, xs, ys
         num_rx_obs = 2  # xs, ys
         # obs_shape = ((num_txs * num_tx_obs) + (num_rxs * num_rx_obs),)
@@ -55,7 +55,7 @@ class Linear1ObsFunction(ObsFunction):
 
 class Linear2ObsFunction(ObsFunction):
     def get_obs_space(self, env_config: dict) -> Space:
-        num_txs = env_config['num_cellular_users'] + env_config['num_d2d_pairs']
+        num_txs = env_config['num_cues'] + env_config['num_due_pairs']
         num_due_obs = 2  # x, y
         num_common_obs = 7  # tx_x, tx_y, rx_x, rx_y, tx_pwr, rb, sinr
         obs_shape = (num_due_obs + (num_common_obs * num_txs),)

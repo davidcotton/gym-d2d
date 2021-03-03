@@ -11,15 +11,15 @@ from gym_d2d.traffic_model import TrafficModel, UplinkTrafficModel
 
 @dataclass
 class EnvConfig:
-    num_rbs: int = 30
-    num_cellular_users: int = 30
-    num_d2d_pairs: int = 12
-    num_small_base_stations: int = 0
+    num_rbs: int = 25
+    num_cues: int = 25
+    num_due_pairs: int = 25
     cell_radius_m: float = 500.0
     d2d_radius_m: float = 20.0
-    cue_max_tx_power_dBm: int = 23
     due_min_tx_power_dBm: int = 0
-    due_max_tx_power_dBm: int = 23
+    due_max_tx_power_dBm: int = 20
+    cue_max_tx_power_dBm: int = 23
+    mbs_max_tx_power_dBm: int = 46
     path_loss_model: Type[PathLoss] = LogDistancePathLoss
     traffic_model: Type[TrafficModel] = UplinkTrafficModel
     carrier_freq_GHz: float = 2.1
