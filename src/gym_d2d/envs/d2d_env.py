@@ -104,7 +104,7 @@ class D2DEnv(gym.Env):
         ues = list(self.devices.cues.keys()) + list(self.devices.due_pairs.keys())
         random_actions = {ue_id: self._extract_action(ue_id, self.action_space.sample()) for ue_id in ues}
         results = self.simulator.step(random_actions)
-        obs = self.obs_fn.get_state(results)
+        obs = self.obs_fn.get_state()
         return obs
 
     def step(self, actions):
@@ -162,7 +162,7 @@ class D2DEnv(gym.Env):
         return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def render(self, mode='human'):
-        obs = self.obs_fn.get_state({})  # @todo need to find a way to handle SINRs here
+        obs = self.obs_fn.get_state()
         print(obs)
 
     def save_device_config(self, config_file: Path) -> None:
@@ -193,7 +193,7 @@ class MultiAgentD2DEnv(D2DEnv):
         actions = {tx_id: self._extract_action(tx_id, int(action_idx)) for tx_id, action_idx in actions.items()}
         results = self.simulator.step(actions)
         self.num_steps += 1
-        obs = self.obs_fn.get_state(results)
+        obs = self.obs_fn.get_state()
         rewards = self.reward_fn(results)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
 

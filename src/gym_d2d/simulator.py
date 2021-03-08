@@ -18,21 +18,22 @@ class Simulator:
         self.traffic_model: TrafficModel = traffic_model
         self.path_loss: PathLoss = path_loss
         self.channels: Dict[Tuple[Id, Id], Channel] = {}
+        self.metrics = {}
 
     def reset(self):
         self.channels.clear()
+        self.metrics.clear()
 
     def step(self, actions: Dict[Id, Action]) -> dict:
         self._generate_traffic(actions)
         sinrs_db = self._calculate_sinrs()
-        capacities = self._calculate_network_capacity(sinrs_db)
-
-        return {
+        self.metrics = {
             'sinrs_db': sinrs_db,
             # 'snrs_db': self._calculate_snrs(),
             'rate_bps': self._calculate_rates(sinrs_db),
-            'capacity_mbps': capacities,
+            'capacity_mbps': self._calculate_network_capacity(sinrs_db),
         }
+        return self.metrics
 
     def _generate_traffic(self, actions: Dict[Id, Action]) -> None:
         # automated traffic
