@@ -6,13 +6,13 @@ import numpy as np
 
 from .devices import Devices
 from gym_d2d.id import Id
-from gym_d2d.simulator import D2DSimulator
+from gym_d2d.simulator import Simulator
 
 
 class ObsFunction(ABC):
-    def __init__(self, simulator: D2DSimulator, devices: Devices) -> None:
+    def __init__(self, simulator: Simulator, devices: Devices) -> None:
         super().__init__()
-        self.simulator: D2DSimulator = simulator
+        self.simulator: Simulator = simulator
         self.devices: Devices = devices
 
     @abstractmethod

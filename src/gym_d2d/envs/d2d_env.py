@@ -11,7 +11,7 @@ from gym_d2d.device import BaseStation, UserEquipment
 from gym_d2d.id import Id
 from gym_d2d.link_type import LinkType
 from gym_d2d.position import Position, get_random_position, get_random_position_nearby
-from gym_d2d.simulator import D2DSimulator
+from gym_d2d.simulator import Simulator
 
 
 BASE_STATION_ID = 'mbs'
@@ -65,10 +65,11 @@ class D2DEnv(gym.Env):
         super().__init__()
         self.config = EnvConfig(**env_config or {})
         self.devices = create_devices(self.config)
-        traffic_model = self.config.traffic_model(self.devices.bs, list(self.devices.cues.values()),
-                                                  self.config.num_rbs)
-        path_loss = self.config.path_loss_model(self.config.carrier_freq_GHz)
-        self.simulator = D2DSimulator(self.devices.to_dict(), traffic_model, path_loss)
+        self.simulator = Simulator(
+            self.devices.to_dict(),
+            self.config.traffic_model(self.devices.bs, list(self.devices.cues.values()), self.config.num_rbs),
+            self.config.path_loss_model(self.config.carrier_freq_GHz)
+        )
 
         self.obs_fn = self.config.obs_fn(self.simulator, self.devices)
         self.observation_space = self.obs_fn.get_obs_space(self.config.__dict__)
