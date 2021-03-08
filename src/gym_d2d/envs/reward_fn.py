@@ -5,15 +5,15 @@ from typing import Dict
 
 from .devices import Devices
 from gym_d2d.id import Id
-from gym_d2d.simulator import D2DSimulator
+from gym_d2d.simulator import Simulator
 from gym_d2d.conversion import dB_to_linear
 from gym_d2d.link_type import LinkType
 
 
 class RewardFunction(ABC):
-    def __init__(self, simulator: D2DSimulator, devices: Devices) -> None:
+    def __init__(self, simulator: Simulator, devices: Devices) -> None:
         super().__init__()
-        self.simulator: D2DSimulator = simulator
+        self.simulator: Simulator = simulator
         self.devices: Devices = devices
 
     @abstractmethod
@@ -49,7 +49,7 @@ class SystemCapacityRewardFunction(RewardFunction):
 
 
 class DueShannonRewardFunction(RewardFunction):
-    def __init__(self, simulator: D2DSimulator, devices: Devices) -> None:
+    def __init__(self, simulator: Simulator, devices: Devices) -> None:
         super().__init__(simulator, devices)
         self.min_sinr = -70.0
 
@@ -65,7 +65,7 @@ class DueShannonRewardFunction(RewardFunction):
 
 
 class CueSinrShannonRewardFunction(RewardFunction):
-    def __init__(self, simulator: D2DSimulator, devices: Devices, sinr_threshold_dB=0.0) -> None:
+    def __init__(self, simulator: Simulator, devices: Devices, sinr_threshold_dB=0.0) -> None:
         super().__init__(simulator, devices)
         self.sinr_threshold_dB: float = float(sinr_threshold_dB)
 
