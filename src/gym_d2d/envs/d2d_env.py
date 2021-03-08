@@ -156,7 +156,7 @@ class D2DEnv(gym.Env):
 
         return obs, rewards, game_over, info
 
-    def _extract_action(self, tx_id: Id, action_idx: int) -> Action:
+    def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
         rb = action_idx % self.config.num_rbs
         tx_pwr_dBm = (action_idx // self.config.num_rbs) + self.config.due_min_tx_power_dBm
         return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
