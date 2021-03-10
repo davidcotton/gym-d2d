@@ -11,7 +11,7 @@ from .path_loss import PathLoss
 from .traffic_model import TrafficModel
 
 
-class D2DSimulator:
+class Simulator:
     def __init__(self, devices: Dict[Id, Device], traffic_model: TrafficModel, path_loss: PathLoss) -> None:
         super().__init__()
         self.devices: Dict[Id, Device] = devices
