@@ -20,7 +20,7 @@ class ObsFunction(ABC):
         pass
 
     @abstractmethod
-    def get_state(self, results: dict) -> Dict[Id, np.array]:
+    def get_state(self) -> Dict[Id, np.array]:
         pass
 
 
@@ -34,7 +34,7 @@ class Linear1ObsFunction(ObsFunction):
         obs_shape = ((num_txs * num_tx_obs) + (num_txs * num_rx_obs),)
         return spaces.Box(low=-env_config['cell_radius_m'], high=env_config['cell_radius_m'], shape=obs_shape)
 
-    def get_state(self, results: dict) -> Dict[Id, np.array]:
+    def get_state(self) -> Dict[Id, np.array]:
         tx_pwrs_dBm = []
         rbs = []
         positions = []
@@ -44,6 +44,7 @@ class Linear1ObsFunction(ObsFunction):
             positions.extend(list(channel.tx.position.as_tuple()))
         for channel in self.simulator.channels.values():
             positions.extend(list(channel.rx.position.as_tuple()))
+        results = self.simulator.metrics
         common_obs = []
         common_obs.extend(list(results['sinrs_db'].values()))
         common_obs.extend(tx_pwrs_dBm)
@@ -62,7 +63,8 @@ class Linear2ObsFunction(ObsFunction):
         obs_shape = (num_due_obs + (num_common_obs * num_txs),)
         return spaces.Box(low=-env_config['cell_radius_m'], high=env_config['cell_radius_m'], shape=obs_shape)
 
-    def get_state(self, results: dict) -> Dict[Id, np.array]:
+    def get_state(self) -> Dict[Id, np.array]:
+        results = self.simulator.metrics
         common_obs = []
         for channel in self.simulator.channels.values():
             common_obs.extend(list(channel.tx.position.as_tuple()))
