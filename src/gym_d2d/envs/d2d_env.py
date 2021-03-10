@@ -4,6 +4,7 @@ from typing import Dict
 
 import gym
 from gym import spaces
+import numpy as np
 
 from .devices import Devices
 from .env_config import EnvConfig
@@ -102,8 +103,21 @@ class D2DEnv(gym.Env):
         # random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
         #                   for due_id in self.devices.due_pairs.keys()}
         # take a step with random D2D actions to generate initial SINRs
-        ues = list(self.devices.cues.keys()) + list(self.devices.due_pairs.keys())
-        random_actions = {ue_id: self._extract_action(ue_id, self.action_space.sample()) for ue_id in ues}
+        # ues = list(self.devices.cues.keys()) + list(self.devices.due_pairs.keys())
+        # random_actions = {ue_id: self._extract_action(ue_id, self.action_space.sample()) for ue_id in ues}
+
+        # due_actions = {}
+        # for due_tx_id, _ in self.devices.dues.keys():
+        #     action = self.due_action_space.sample()
+        #     due_actions[due_tx_id] = self._extract_action(due_tx_id, action)
+        multi_actions = self.due_action_space.sample()
+        due_actions = {due_id: self._extract_action(due_id, action) for due_id, action in
+                       zip(self.devices.due_pairs.keys(), multi_actions)}
+        random_actions = {
+            **{_id: self._extract_action(_id, self.cue_action_space.sample()) for _id in self.devices.cues.keys()},
+            # **{_id: self._extract_action(_id, self.due_action_space.sample()) for _id, _ in self.devices.dues.keys()}
+            **due_actions
+        }
         results = self.simulator.step(random_actions)
         obs = self.obs_fn.get_state()
         return obs
@@ -112,7 +126,7 @@ class D2DEnv(gym.Env):
         actions = self._extract_actions(actions)
         results = self.simulator.step(actions)
         self.num_steps += 1
-        obs = self.obs_fn.get_state(results)
+        obs = self.obs_fn.get_state()
         rewards = self.reward_fn(results)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
         info = self._info(actions, results)
@@ -192,19 +206,39 @@ class MultiAgentD2DEnv(D2DEnv):
         # +1 because include max value, i.e. from [0, ..., max]
         self.num_due_pwr_actions = self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1
         self.due_action_space = spaces.Discrete(self.config.num_rbs * self.num_due_pwr_actions)
+        # self.due_action_space = spaces.MultiDiscrete([self.config.num_rbs, self.num_due_pwr_actions])
+
         self.num_cue_pwr_actions = self.config.cue_max_tx_power_dBm + 1
         self.cue_action_space = spaces.Discrete(self.config.num_rbs * self.num_cue_pwr_actions)
         self.num_mbs_pwr_actions = self.config.mbs_max_tx_power_dBm + 1
         self.mbs_action_space = spaces.Discrete(self.config.num_rbs * self.num_mbs_pwr_actions)
 
-    def step(self, actions):
-        actions = {tx_id: self._extract_action(tx_id, int(action_idx)) for tx_id, action_idx in actions.items()}
-        results = self.simulator.step(actions)
-        self.num_steps += 1
-        obs = self.obs_fn.get_state()
-        rewards = self.reward_fn(results)
-        game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
+    def _extract_actions(self, actions: Dict[Id, object]) -> Dict[Id, Action]:
+        return {tx_id: self._extract_action(tx_id, action) for tx_id, action in actions.items()}
 
+    def _extract_action(self, tx_id: Id, action) -> Action:
+        if tx_id in self.devices.due_pairs:
+            rx_id = self.devices.due_pairs[tx_id]
+            link_type = LinkType.UPLINK
+            if isinstance(action, np.ndarray):
+                rb = action[0]
+                tx_pwr_dBm = action[1]
+            else:
+                rb = action // self.num_due_pwr_actions
+                tx_pwr_dBm = action % self.num_due_pwr_actions
+        elif tx_id in self.devices.cues:
+            rx_id = self.devices.bs.id
+            link_type = LinkType.SIDELINK
+            rb = action // self.num_cue_pwr_actions
+            tx_pwr_dBm = action % self.num_cue_pwr_actions
+        else:
+            rx_id = self.devices.cues[tx_id]
+            link_type = LinkType.DOWNLINK
+            rb = action // self.num_mbs_pwr_actions
+            tx_pwr_dBm = action % self.num_mbs_pwr_actions
+        return Action(tx_id, rx_id, link_type, rb, tx_pwr_dBm)
+
+    def _info(self, actions: Dict[Id, Action], results: dict):
         info = {}
         for ((tx_id, rx_id), sinr_db), capacity in zip(results['sinrs_db'].items(), results['capacity_mbps'].values()):
             info[tx_id] = {
@@ -214,23 +248,6 @@ class MultiAgentD2DEnv(D2DEnv):
                 'rate_bps': results['rate_bps'][(tx_id, rx_id)],
                 'capacity_mbps': capacity,
             }
+        return info
 
-        return obs, rewards, game_over, info
 
-    def _extract_action(self, tx_id: Id, action_idx: int) -> Action:
-        if tx_id in self.devices.due_pairs:
-            rx_id = self.devices.due_pairs[tx_id]
-            link_type = LinkType.UPLINK
-            rb = action_idx // self.num_due_pwr_actions
-            tx_pwr_dBm = action_idx % self.num_due_pwr_actions
-        elif tx_id in self.devices.cues:
-            rx_id = self.devices.bs.id
-            link_type = LinkType.SIDELINK
-            rb = action_idx // self.num_cue_pwr_actions
-            tx_pwr_dBm = action_idx % self.num_cue_pwr_actions
-        else:
-            rx_id = self.devices.cues[tx_id]
-            link_type = LinkType.DOWNLINK
-            rb = action_idx // self.num_mbs_pwr_actions
-            tx_pwr_dBm = action_idx % self.num_mbs_pwr_actions
-        return Action(tx_id, rx_id, link_type, rb, tx_pwr_dBm)
