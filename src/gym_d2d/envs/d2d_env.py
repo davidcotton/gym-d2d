@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Dict
 
 import gym
 from gym import spaces
@@ -105,7 +106,7 @@ class D2DEnv(gym.Env):
         return obs
 
     def step(self, actions):
-        due_actions = {due_id: self._extract_action(due_id, int(action_idx)) for due_id, action_idx in actions.items()}
+        due_actions = self._extract_actions(actions)
         results = self.simulator.step(due_actions)
         self.num_steps += 1
         obs = self.obs_fn.get_state(results)
@@ -153,9 +154,12 @@ class D2DEnv(gym.Env):
 
         return obs, rewards, game_over, info
 
-    def _extract_action(self, due_tx_id: Id, action_idx: int) -> Action:
-        rb = action_idx % self.config.num_rbs
-        tx_pwr_dBm = (action_idx // self.config.num_rbs) + self.config.due_min_tx_power_dBm
+    def _extract_actions(self, actions: Dict[Id, object]) -> Dict[Id, Action]:
+        return {due_id: self._extract_action(due_id, int(action_idx)) for due_id, action_idx in actions.items()}
+
+    def _extract_action(self, due_tx_id: Id, action: int) -> Action:
+        rb = action % self.config.num_rbs
+        tx_pwr_dBm = (action // self.config.num_rbs) + self.config.due_min_tx_power_dBm
         return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def render(self, mode='human'):
