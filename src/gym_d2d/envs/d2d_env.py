@@ -106,13 +106,25 @@ class D2DEnv(gym.Env):
         return obs
 
     def step(self, actions):
-        due_actions = self._extract_actions(actions)
-        results = self.simulator.step(due_actions)
+        actions = self._extract_actions(actions)
+        results = self.simulator.step(actions)
         self.num_steps += 1
         obs = self.obs_fn.get_state(results)
         rewards = self.reward_fn(results)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
+        info = self._info(actions, results)
 
+        return obs, rewards, game_over, info
+
+    def _extract_actions(self, actions: Dict[Id, object]) -> Dict[Id, Action]:
+        return {due_id: self._extract_action(due_id, int(action_idx)) for due_id, action_idx in actions.items()}
+
+    def _extract_action(self, due_tx_id: Id, action: int) -> Action:
+        rb = action % self.config.num_rbs
+        tx_pwr_dBm = (action // self.config.num_rbs) + self.config.due_min_tx_power_dBm
+        return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
+
+    def _info(self, actions: Dict[Id, Action], results: dict):
         info = {}
         sum_cue_sinr, sum_system_sinr = 0.0, 0.0
         sum_cue_rate_bps, sum_due_rate_bps, sum_system_rate_bps = 0.0, 0.0, 0.0
@@ -123,8 +135,8 @@ class D2DEnv(gym.Env):
             sum_system_capacity += capacity
             if tx_id in self.devices.due_pairs:
                 info[tx_id] = {
-                    'rb': due_actions[tx_id].rb,
-                    'tx_pwr_dbm': due_actions[tx_id].tx_pwr_dBm,
+                    'rb': actions[tx_id].rb,
+                    'tx_pwr_dbm': actions[tx_id].tx_pwr_dBm,
                     'due_sinr_db': sinr_db,
                     'due_rate_bps': results['rate_bps'][(tx_id, rx_id)],
                     'due_capacity_mbps': capacity,
@@ -152,15 +164,7 @@ class D2DEnv(gym.Env):
         else:
             info['__env__'] = aggregate_info
 
-        return obs, rewards, game_over, info
-
-    def _extract_actions(self, actions: Dict[Id, object]) -> Dict[Id, Action]:
-        return {due_id: self._extract_action(due_id, int(action_idx)) for due_id, action_idx in actions.items()}
-
-    def _extract_action(self, due_tx_id: Id, action: int) -> Action:
-        rb = action % self.config.num_rbs
-        tx_pwr_dBm = (action // self.config.num_rbs) + self.config.due_min_tx_power_dBm
-        return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
+        return info
 
     def render(self, mode='human'):
         obs = self.obs_fn.get_state({})  # @todo need to find a way to handle SINRs here
