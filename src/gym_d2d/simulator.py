@@ -2,6 +2,8 @@ from collections import defaultdict
 from math import log2
 from typing import Dict, Tuple
 
+from gym_d2d.link_type import LinkType
+
 from .action import Action
 from .channel import Channel
 from .conversion import dB_to_linear, linear_to_dB
@@ -26,12 +28,14 @@ class Simulator:
 
     def step(self, actions: Dict[Id, Action]) -> dict:
         self._generate_traffic(actions)
+        channel_gains_db = self._calculate_channel_gains()
         sinrs_db = self._calculate_sinrs()
         self.metrics = {
             'sinrs_db': sinrs_db,
-            # 'snrs_db': self._calculate_snrs(),
+            'snrs_db': self._calculate_snrs(),
             'rate_bps': self._calculate_rates(sinrs_db),
             'capacity_mbps': self._calculate_network_capacity(sinrs_db),
+            'channel_gains_db': channel_gains_db,
         }
         return self.metrics
 
@@ -82,6 +86,25 @@ class Simulator:
             rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(channel.tx_pwr_dBm), self.path_loss(tx, rx))
             SNRs_dB[ids] = float(rx_pwr_dBm - rx.thermal_noise_dBm)
         return SNRs_dB
+
+    def _calculate_channel_gains(self) -> Dict[Tuple[Id, Id], float]:
+        # group channels by RB
+        rbs = defaultdict(set)
+        for channel in self.channels.values():
+            rbs[channel.rb].add(channel)
+
+        channel_gains_db = {}
+        for (tx_id, rx_id), channel in self.channels.items():
+            channel_gains_db[(tx_id, rx_id)] = self._channel_gain(channel.tx, channel.rx)
+            if channel.link_type == LinkType.SIDELINK:
+                bs = self.devices['mbs']
+                channel_gains_db[(tx_id, bs.id)] = self._channel_gain(channel.tx, bs)
+        return channel_gains_db
+
+    def _channel_gain(self, tx: Device, rx: Device) -> float:
+        tx_gain_dB = tx.eirp_dBm(0)
+        path_loss_dB = self.path_loss(tx, rx)
+        return rx.rx_signal_level_dBm(tx_gain_dB, path_loss_dB)
 
     def _calculate_rates(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         rates_bps = {}

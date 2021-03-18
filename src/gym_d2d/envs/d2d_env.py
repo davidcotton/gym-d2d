@@ -102,25 +102,16 @@ class D2DEnv(gym.Env):
         # # take a step with random D2D actions to generate initial SINRs
         # random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
         #                   for due_id in self.devices.due_pairs.keys()}
-        # take a step with random D2D actions to generate initial SINRs
         # ues = list(self.devices.cues.keys()) + list(self.devices.due_pairs.keys())
         # random_actions = {ue_id: self._extract_action(ue_id, self.action_space.sample()) for ue_id in ues}
-
-        # due_actions = {}
-        # for due_tx_id, _ in self.devices.dues.keys():
-        #     action = self.due_action_space.sample()
-        #     due_actions[due_tx_id] = self._extract_action(due_tx_id, action)
-        multi_actions = self.due_action_space.sample()
-        due_actions = {due_id: self._extract_action(due_id, action) for due_id, action in
-                       zip(self.devices.due_pairs.keys(), multi_actions)}
-        random_actions = {
-            **{_id: self._extract_action(_id, self.cue_action_space.sample()) for _id in self.devices.cues.keys()},
-            # **{_id: self._extract_action(_id, self.due_action_space.sample()) for _id, _ in self.devices.dues.keys()}
-            **due_actions
-        }
+        random_actions = self._reset_random_actions()
         results = self.simulator.step(random_actions)
         obs = self.obs_fn.get_state()
         return obs
+
+    def _reset_random_actions(self) -> Dict[Id, Action]:
+        return {due_id: self._extract_action(due_id, self.action_space.sample())
+                for due_id in self.devices.due_pairs.keys()}
 
     def step(self, actions):
         actions = self._extract_actions(actions)
@@ -213,13 +204,24 @@ class MultiAgentD2DEnv(D2DEnv):
         self.num_mbs_pwr_actions = self.config.mbs_max_tx_power_dBm + 1
         self.mbs_action_space = spaces.Discrete(self.config.num_rbs * self.num_mbs_pwr_actions)
 
+    def _reset_random_actions(self) -> Dict[Id, Action]:
+        cue_actions = {_id: self._extract_action(_id, self.cue_action_space.sample())
+                       for _id in self.devices.cues.keys()}
+        due_actions = {_id: self._extract_action(_id, self.due_action_space.sample())
+                       for _id, _ in self.devices.dues.keys()}
+        random_actions = {
+            **cue_actions,
+            **due_actions
+        }
+        return random_actions
+
     def _extract_actions(self, actions: Dict[Id, object]) -> Dict[Id, Action]:
         return {tx_id: self._extract_action(tx_id, action) for tx_id, action in actions.items()}
 
     def _extract_action(self, tx_id: Id, action) -> Action:
         if tx_id in self.devices.due_pairs:
             rx_id = self.devices.due_pairs[tx_id]
-            link_type = LinkType.UPLINK
+            link_type = LinkType.SIDELINK
             if isinstance(action, np.ndarray):
                 rb = action[0]
                 tx_pwr_dBm = action[1]
@@ -228,7 +230,7 @@ class MultiAgentD2DEnv(D2DEnv):
                 tx_pwr_dBm = action % self.num_due_pwr_actions
         elif tx_id in self.devices.cues:
             rx_id = self.devices.bs.id
-            link_type = LinkType.SIDELINK
+            link_type = LinkType.UPLINK
             rb = action // self.num_cue_pwr_actions
             tx_pwr_dBm = action % self.num_cue_pwr_actions
         else:
@@ -244,6 +246,8 @@ class MultiAgentD2DEnv(D2DEnv):
             info[tx_id] = {
                 'rb': actions[tx_id].rb,
                 'tx_pwr_dbm': actions[tx_id].tx_pwr_dBm,
+                # 'channel_gains_db': results['channel_gains_db'][(tx_id, rx_id)],
+                'snr_db': results['snrs_db'][(tx_id, rx_id)],
                 'sinr_db': sinr_db,
                 'rate_bps': results['rate_bps'][(tx_id, rx_id)],
                 'capacity_mbps': capacity,
