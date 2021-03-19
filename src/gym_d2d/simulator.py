@@ -75,11 +75,6 @@ class Simulator:
         return sinrs_db
 
     def _calculate_snrs(self) -> Dict[Tuple[Id, Id], float]:
-        # group channels by RB
-        rbs = defaultdict(set)
-        for channel in self.channels.values():
-            rbs[channel.rb].add(channel)
-
         SNRs_dB = {}
         for ids, channel in self.channels.items():
             tx, rx = channel.tx, channel.rx
@@ -88,11 +83,6 @@ class Simulator:
         return SNRs_dB
 
     def _calculate_channel_gains(self) -> Dict[Tuple[Id, Id], float]:
-        # group channels by RB
-        rbs = defaultdict(set)
-        for channel in self.channels.values():
-            rbs[channel.rb].add(channel)
-
         channel_gains_db = {}
         for (tx_id, rx_id), channel in self.channels.items():
             channel_gains_db[(tx_id, rx_id)] = self._channel_gain(channel.tx, channel.rx)
