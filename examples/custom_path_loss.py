@@ -23,13 +23,12 @@ env = gym.make('D2DEnv-v0', env_config=env_config)
 
 # run the standard agent loop, no change here
 agent = 'D2DAgent()'
-obs_dict = env.reset()
+obses = env.reset()
 game_over = False
 for _ in range(10):
-    actions_dict = {}
-    for agent_id, obs in obs_dict.items():
-        action = env.action_space.sample()
-        actions_dict[agent_id] = action
+    actions = {}
+    for agent_id, obs in obses.items():
+        actions[agent_id] = env.action_space['due'].sample()
 
-    obs_dict, rewards_dict, game_over, info = env.step(actions_dict)
-    print(obs_dict)
+    obses, rewards, game_over, info = env.step(actions)
+    print(obses)

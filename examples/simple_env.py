@@ -14,15 +14,21 @@ import gym_d2d
 
 env = gym.make('D2DEnv-v0')
 
-agent = 'D2DAgent()'
-obs_dict = env.reset()
+due_agent = 'DUEAgent()'
+obses = env.reset()
 game_over = False
-for _ in range(100):
+for _ in range(10):
     actions_dict = {}
-    for agent_id, obs in obs_dict.items():
-        action = env.action_space.sample()
-        # or action = agent.act(obs)
+    for agent_id, obs in obses.items():
+        if agent_id.startswith('due'):
+            action = env.action_space['due'].sample()
+            # or action = due_agent.act(obs)
+        elif agent_id.startswith('cue'):
+            action = env.action_space['cue'].sample()
+        else:
+            action = env.action_space['mbs'].sample()
         actions_dict[agent_id] = action
 
-    obs_dict, rewards_dict, game_over, info = env.step(actions_dict)
-    env.render()
+    obses, rewards_dict, game_over, info = env.step(actions_dict)
+    # env.render()
+    print(obses)
