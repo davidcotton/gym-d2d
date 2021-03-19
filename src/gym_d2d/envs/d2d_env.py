@@ -68,7 +68,7 @@ class D2DEnv(gym.Env):
         self.config = EnvConfig(**env_config or {})
         self.devices = create_devices(self.config)
         self.simulator = Simulator(
-            self.devices.to_dict(),
+            self.devices,
             self.config.traffic_model(self.devices.bs, list(self.devices.cues.values()), self.config.num_rbs),
             self.config.path_loss_model(self.config.carrier_freq_GHz)
         )

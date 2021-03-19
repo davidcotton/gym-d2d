@@ -7,16 +7,16 @@ from gym_d2d.link_type import LinkType
 from .action import Action
 from .channel import Channel
 from .conversion import dB_to_linear, linear_to_dB
-from .device import Device
+from .envs.devices import Devices
 from .id import Id
 from .path_loss import PathLoss
 from .traffic_model import TrafficModel
 
 
 class Simulator:
-    def __init__(self, devices: Dict[Id, Device], traffic_model: TrafficModel, path_loss: PathLoss) -> None:
+    def __init__(self, devices: Devices, traffic_model: TrafficModel, path_loss: PathLoss) -> None:
         super().__init__()
-        self.devices: Dict[Id, Device] = devices
+        self.devices: Devices = devices
         self.traffic_model: TrafficModel = traffic_model
         self.path_loss: PathLoss = path_loss
         self.channels: Dict[Tuple[Id, Id], Channel] = {}
