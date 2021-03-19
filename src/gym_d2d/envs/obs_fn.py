@@ -4,16 +4,14 @@ from typing import Dict
 from gym import Space, spaces
 import numpy as np
 
-from .devices import Devices
 from gym_d2d.id import Id
 from gym_d2d.simulator import Simulator
 
 
 class ObsFunction(ABC):
-    def __init__(self, simulator: Simulator, devices: Devices) -> None:
+    def __init__(self, simulator: Simulator) -> None:
         super().__init__()
         self.simulator: Simulator = simulator
-        self.devices: Devices = devices
 
     @abstractmethod
     def get_obs_space(self, env_config: dict) -> Space:
@@ -74,7 +72,7 @@ class Linear2ObsFunction(ObsFunction):
             common_obs.append(results['sinrs_db'][(channel.tx.id, channel.rx.id)])
 
         obs_dict = {}
-        for due_id in self.devices.due_pairs.keys():
+        for due_id in self.simulator.devices.due_pairs.keys():
             due_pos = list(self.simulator.devices[due_id].position.as_tuple())
             due_obs = []
             due_obs.extend(due_pos)

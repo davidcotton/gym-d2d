@@ -7,6 +7,7 @@ from gym_d2d.link_type import LinkType
 from .action import Action
 from .channel import Channel
 from .conversion import dB_to_linear, linear_to_dB
+from .device import Device
 from .envs.devices import Devices
 from .id import Id
 from .path_loss import PathLoss
