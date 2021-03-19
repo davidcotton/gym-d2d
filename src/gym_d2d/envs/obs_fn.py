@@ -22,61 +22,28 @@ class ObsFunction(ABC):
         pass
 
 
-class Linear1ObsFunction(ObsFunction):
+class LinearObsFunction(ObsFunction):
     def get_obs_space(self, env_config: dict) -> Space:
+        r = env_config['cell_radius_m']
         num_txs = env_config['num_cues'] + env_config['num_due_pairs']
-        # num_rxs = 1 + self.num_due_pairs  # basestation + num D2D rxs
-        num_tx_obs = 5  # sinrs, tx_pwrs, rbs, xs, ys
-        num_rx_obs = 2  # xs, ys
-        # obs_shape = ((num_txs * num_tx_obs) + (num_rxs * num_rx_obs),)
-        obs_shape = ((num_txs * num_tx_obs) + (num_txs * num_rx_obs),)
-        return spaces.Box(low=-env_config['cell_radius_m'], high=env_config['cell_radius_m'], shape=obs_shape)
-
-    def get_state(self) -> Dict[Id, np.array]:
-        tx_pwrs_dBm = []
-        rbs = []
-        positions = []
-        for channel in self.simulator.channels.values():
-            tx_pwrs_dBm.append(channel.tx_pwr_dBm)
-            rbs.append(channel.rb)
-            positions.extend(list(channel.tx.position.as_tuple()))
-        for channel in self.simulator.channels.values():
-            positions.extend(list(channel.rx.position.as_tuple()))
-        results = self.simulator.metrics
-        common_obs = []
-        common_obs.extend(list(results['sinrs_db'].values()))
-        common_obs.extend(tx_pwrs_dBm)
-        common_obs.extend(rbs)
-        common_obs.extend(positions)
-
-        # return {due_id: np.array(common_obs) for due_id in self.devices.due_pairs.keys()}
-        return {tx_id: np.array(common_obs) for tx_id, _ in results['sinrs_db'].keys()}
-
-
-class Linear2ObsFunction(ObsFunction):
-    def get_obs_space(self, env_config: dict) -> Space:
-        num_txs = env_config['num_cues'] + env_config['num_due_pairs']
-        num_due_obs = 2  # x, y
-        num_common_obs = 7  # tx_x, tx_y, rx_x, rx_y, tx_pwr, rb, sinr
-        obs_shape = (num_due_obs + (num_common_obs * num_txs),)
-        return spaces.Box(low=-env_config['cell_radius_m'], high=env_config['cell_radius_m'], shape=obs_shape)
+        num_obs = 6  # tx_x, tx_y, rx_x, rx_y, sinr, snr
+        obs_shape = (num_obs * num_txs,)
+        return spaces.Box(low=-r, high=r, shape=obs_shape)
 
     def get_state(self) -> Dict[Id, np.array]:
         results = self.simulator.metrics
-        common_obs = []
-        for channel in self.simulator.channels.values():
-            common_obs.extend(list(channel.tx.position.as_tuple()))
-            common_obs.extend(list(channel.rx.position.as_tuple()))
-            common_obs.append(channel.tx_pwr_dBm)
-            common_obs.append(channel.rb)
-            common_obs.append(results['sinrs_db'][(channel.tx.id, channel.rx.id)])
+        obses = {}
+        for (tx_id, rx_id), channel in self.simulator.channels.items():
+            obses[tx_id] = list(channel.tx.position.as_tuple() + channel.rx.position.as_tuple())
+            obses[tx_id].append(results['sinrs_db'][(tx_id, rx_id)])
+            obses[tx_id].append(results['snrs_db'][(tx_id, rx_id)])
 
         obs_dict = {}
-        for due_id in self.simulator.devices.due_pairs.keys():
-            due_pos = list(self.simulator.devices[due_id].position.as_tuple())
-            due_obs = []
-            due_obs.extend(due_pos)
-            due_obs.extend(common_obs)
-            obs_dict[due_id] = np.array(due_obs)
+        for tx_id in obses:
+            tx_obs_copy = obses[tx_id][:]
+            for other_tx_id, other_obs in obses.items():
+                if other_tx_id != tx_id:
+                    tx_obs_copy.extend(other_obs)
+            obs_dict[tx_id] = np.array(tx_obs_copy)
 
         return obs_dict
