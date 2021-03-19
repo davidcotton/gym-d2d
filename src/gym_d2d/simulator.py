@@ -29,14 +29,14 @@ class Simulator:
 
         return {
             'sinrs_db': sinrs_db,
-            # 'snrs_db': self._calculate_snrs(),
+            'snrs_db': self._calculate_snrs(),
             'rate_bps': self._calculate_rates(sinrs_db),
             'capacity_mbps': capacities,
         }
 
     def _generate_traffic(self, actions: Dict[Id, Action]) -> None:
         # automated traffic
-        self.channels = self.traffic_model.get_traffic()
+        # self.channels = self.traffic_model.get_traffic()
         # supplied actions
         for action in actions.values():
             tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]
@@ -69,11 +69,6 @@ class Simulator:
         return sinrs_db
 
     def _calculate_snrs(self) -> Dict[Tuple[Id, Id], float]:
-        # group channels by RB
-        rbs = defaultdict(set)
-        for channel in self.channels.values():
-            rbs[channel.rb].add(channel)
-
         SNRs_dB = {}
         for ids, channel in self.channels.items():
             tx, rx = channel.tx, channel.rx

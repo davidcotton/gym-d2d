@@ -60,20 +60,35 @@ Build a new D2D environment via the usual Gym factory method
 
 Then run in the standard Gym observation, action, reward loop.
 
-    obs_dict = env.reset()
+    obses = env.reset()
     game_over = False
     while not game_over:
-        actions_dict = {}
-        for agent_id, obs in obs_dict.items():
-            action = env.action_space.sample()  # or: action = agent.act(obs)
-            actions_dict[agent_id] = action
+        actions = {}
+        for agent_id, obs in obses.items():
+            action = env.action_space['due'].sample()  # or: action = agent.act(obs)
+            actions[agent_id] = action
     
-        obs_dict, rewards_dict, game_over, info = env.step(actions_dict)
+        obses, rewards, game_over, infos = env.step(actions)
         env.render()
 
-There are two main differences with this environment to the usual classic control or ALE environments:
-1. The environment is non-episodic, there is no terminal state, `game_over` will always be `False`.
-1. Observations, actions and rewards are passed via Python dicts, see `gym.spaces.DictSpace`.
+The main difference between this environment and the usual classic control or ALE environments is that it is designed for multiple agents.
+The environment's observation and action spaces use `gym.spaces.DictSpace`, with 3 keys: `due`, `cue` & `mbs`.
+Observations, actions, rewards and info are passed via Python dicts like:
+
+    obs_dict = {
+        'cue00': np.ndarray(...),
+        'cue01': np.ndarray(...),
+        'due00': np.ndarray(...),
+        'due01': np.ndarray(...),
+        ...
+    }
+    actions = {
+        'cue00': 23,
+        'cue01': 317,
+        'due00': 13,
+        'due01': 95,
+        ...
+    }
 
 We have some common usage examples in the [examples directory](examples).
 
@@ -101,7 +116,7 @@ The environment has the following configuration options:
 | mbs_max_tx_power_dBm | The maximum MBS transmission power in dBm. | `int` | 46 |
 | path_loss_model | The type of path loss model to use. | `gym_d2d.` `PathLoss` | `gym_d2d.` `LogDistancePathLoss` |
 | traffic_model | The model to generate automated traffic. | `gym_d2d.` `TrafficModel` | `gym_d2d.` `UplinkTrafficModel` |
-| obs_fn | The function to calculate agent observations. | `gym_d2d.envs.` `ObsFunction` | `gym_d2d.envs.` `Linear1ObsFunction` |
+| obs_fn | The function to calculate agent observations. | `gym_d2d.envs.` `ObsFunction` | `gym_d2d.envs.` `LinearObsFunction` |
 | reward_fn | The function to calculate agent rewards. | `gym_d2d.envs.` `RewardFunction` | `gym_d2d.envs.` `SystemCapacityRewardFunction` |
 | carrier_freq_GHz | The carrier frequency used, in GHz. | `float` | 2.1 |
 | num_subcarriers | The number of subcarriers. | `int` | 12 |

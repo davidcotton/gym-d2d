@@ -1,9 +1,10 @@
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Tuple, Any
 
 import gym
 from gym import spaces
+import numpy as np
 
 from .devices import Devices
 from .env_config import EnvConfig
@@ -73,9 +74,16 @@ class D2DEnv(gym.Env):
         )
         self.obs_fn = self.config.obs_fn(self.simulator)
         self.observation_space = self.obs_fn.get_obs_space(self.config.__dict__)
-        # +1 because include max value, i.e. from [0, ..., max]
-        num_tx_pwr_actions = self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1
-        self.action_space = spaces.Discrete(self.config.num_rbs * num_tx_pwr_actions)
+        self.num_pwr_actions = {  # +1 because include max value, i.e. from [0, ..., max]
+            'due': self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1,
+            'cue': self.config.cue_max_tx_power_dBm + 1,
+            'mbs': self.config.mbs_max_tx_power_dBm + 1
+        }
+        self.action_space = spaces.Dict({
+            'due': spaces.Discrete(self.config.num_rbs * self.num_pwr_actions['due']),
+            'cue': spaces.Discrete(self.config.num_rbs * self.num_pwr_actions['cue']),
+            'mbs': spaces.Discrete(self.config.num_rbs * self.num_pwr_actions['mbs']),
+        })
         self.reward_fn = self.config.reward_fn(self.simulator)
         self.num_steps = 0
 
@@ -98,11 +106,17 @@ class D2DEnv(gym.Env):
 
         self.simulator.reset()
         # take a step with random D2D actions to generate initial SINRs
-        random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
-                          for due_id in self.simulator.devices.due_pairs.keys()}
+        random_actions = self._reset_random_actions()
         results = self.simulator.step(random_actions)
         obs = self.obs_fn.get_state(results)
         return obs
+
+    def _reset_random_actions(self) -> Dict[Id, Action]:
+        cue_actions = {_id: self._extract_action(_id, self.action_space['cue'].sample())
+                       for _id in self.simulator.devices.cues.keys()}
+        due_actions = {_id: self._extract_action(_id, self.action_space['due'].sample())
+                       for _id, _ in self.simulator.devices.dues.keys()}
+        return {**cue_actions, **due_actions}
 
     def step(self, actions):
         actions = self._extract_actions(actions)
@@ -116,12 +130,32 @@ class D2DEnv(gym.Env):
         return obs, rewards, game_over, info
 
     def _extract_actions(self, actions: Dict[Id, object]) -> Dict[Id, Action]:
-        return {due_id: self._extract_action(due_id, int(action_idx)) for due_id, action_idx in actions.items()}
+        return {tx_id: self._extract_action(tx_id, action) for tx_id, action in actions.items()}
 
-    def _extract_action(self, due_tx_id: Id, action: int) -> Action:
-        rb = action % self.config.num_rbs
-        tx_pwr_dBm = (action // self.config.num_rbs) + self.config.due_min_tx_power_dBm
-        return Action(due_tx_id, self.simulator.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
+    def _extract_action(self, tx_id: Id, action) -> Action:
+        if tx_id in self.simulator.devices.due_pairs:
+            rx_id = self.simulator.devices.due_pairs[tx_id]
+            link_type = LinkType.SIDELINK
+            rb, tx_pwr_dBm = self._decode_action(action, 'due')
+        elif tx_id in self.simulator.devices.cues:
+            rx_id = self.simulator.devices.bs.id
+            link_type = LinkType.UPLINK
+            rb, tx_pwr_dBm = self._decode_action(action, 'cue')
+        else:
+            rx_id = self.simulator.devices.cues[tx_id]
+            link_type = LinkType.DOWNLINK
+            rb, tx_pwr_dBm = self._decode_action(action, 'mbs')
+        return Action(tx_id, rx_id, link_type, rb, tx_pwr_dBm)
+
+    def _decode_action(self, action: Any, tx_type: str) -> Tuple[int, int]:
+        if isinstance(action, (int, np.integer)):
+            rb = action // self.num_pwr_actions[tx_type]
+            tx_pwr_dBm = action % self.num_pwr_actions[tx_type]
+        elif isinstance(action, np.ndarray) and action.ndim == 2:
+            rb, tx_pwr_dBm = action
+        else:
+            raise ValueError(f'Unable to decode action type "{type(action)}"')
+        return int(rb), int(tx_pwr_dBm)
 
     def _info(self, actions: Dict[Id, Action], results: dict):
         info = {}
