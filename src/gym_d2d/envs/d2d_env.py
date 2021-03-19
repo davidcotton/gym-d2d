@@ -65,19 +65,18 @@ class D2DEnv(gym.Env):
     def __init__(self, env_config=None) -> None:
         super().__init__()
         self.config = EnvConfig(**env_config or {})
-        self.devices = create_devices(self.config)
+        devices = create_devices(self.config)
         self.simulator = Simulator(
-            self.devices,
-            self.config.traffic_model(self.devices.bs, list(self.devices.cues.values()), self.config.num_rbs),
+            devices,
+            self.config.traffic_model(devices.bs, list(devices.cues.values()), self.config.num_rbs),
             self.config.path_loss_model(self.config.carrier_freq_GHz)
         )
-
-        self.obs_fn = self.config.obs_fn(self.simulator, self.devices)
+        self.obs_fn = self.config.obs_fn(self.simulator)
         self.observation_space = self.obs_fn.get_obs_space(self.config.__dict__)
         # +1 because include max value, i.e. from [0, ..., max]
         num_tx_pwr_actions = self.config.due_max_tx_power_dBm - self.config.due_min_tx_power_dBm + 1
         self.action_space = spaces.Discrete(self.config.num_rbs * num_tx_pwr_actions)
-        self.reward_fn = self.config.reward_fn(self.simulator, self.devices)
+        self.reward_fn = self.config.reward_fn(self.simulator)
         self.num_steps = 0
 
     def reset(self):
@@ -87,10 +86,10 @@ class D2DEnv(gym.Env):
                 pos = Position(0, 0)  # assume MBS fixed at (0,0) and everything else builds around it
             elif device.id in self.config.devices:
                 pos = Position(*self.config.devices[device.id]['position'])
-            elif any(device.id in d for d in [self.devices.cues, self.devices.due_pairs]):
+            elif any(device.id in d for d in [self.simulator.devices.cues, self.simulator.devices.due_pairs]):
                 pos = get_random_position(self.config.cell_radius_m)
-            elif device.id in self.devices.due_pairs_inv:
-                due_tx_id = self.devices.due_pairs_inv[device.id]
+            elif device.id in self.simulator.devices.due_pairs_inv:
+                due_tx_id = self.simulator.devices.due_pairs_inv[device.id]
                 due_tx = self.simulator.devices[due_tx_id]
                 pos = get_random_position_nearby(self.config.cell_radius_m, due_tx.position, self.config.d2d_radius_m)
             else:
@@ -100,7 +99,7 @@ class D2DEnv(gym.Env):
         self.simulator.reset()
         # take a step with random D2D actions to generate initial SINRs
         random_actions = {due_id: self._extract_action(due_id, self.action_space.sample())
-                          for due_id in self.devices.due_pairs.keys()}
+                          for due_id in self.simulator.devices.due_pairs.keys()}
         results = self.simulator.step(random_actions)
         obs = self.obs_fn.get_state(results)
         return obs
@@ -122,7 +121,7 @@ class D2DEnv(gym.Env):
     def _extract_action(self, due_tx_id: Id, action: int) -> Action:
         rb = action % self.config.num_rbs
         tx_pwr_dBm = (action // self.config.num_rbs) + self.config.due_min_tx_power_dBm
-        return Action(due_tx_id, self.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
+        return Action(due_tx_id, self.simulator.devices.due_pairs[due_tx_id], LinkType.SIDELINK, rb, tx_pwr_dBm)
 
     def _info(self, actions: Dict[Id, Action], results: dict):
         info = {}
@@ -133,7 +132,7 @@ class D2DEnv(gym.Env):
             sum_system_sinr += sinr_db
             sum_system_rate_bps += results['rate_bps'][(tx_id, rx_id)]
             sum_system_capacity += capacity
-            if tx_id in self.devices.due_pairs:
+            if tx_id in self.simulator.devices.due_pairs:
                 info[tx_id] = {
                     'rb': actions[tx_id].rb,
                     'tx_pwr_dbm': actions[tx_id].tx_pwr_dBm,
@@ -149,8 +148,9 @@ class D2DEnv(gym.Env):
                 sum_cue_capacity += capacity
 
         aggregate_info = {
-            'env_mean_cue_sinr_db': sum_cue_sinr / len(self.devices.cues),
-            'env_mean_system_sinr_db': sum_system_sinr / (len(self.devices.cues) + len(self.devices.due_pairs)),
+            'env_mean_cue_sinr_db': sum_cue_sinr / len(self.simulator.devices.cues),
+            'env_mean_system_sinr_db':
+                sum_system_sinr / (len(self.simulator.devices.cues) + len(self.simulator.devices.due_pairs)),
             'env_sum_cue_rate_bps': sum_cue_rate_bps,
             'env_sum_due_rate_bps': sum_due_rate_bps,
             'env_sum_system_rate_bps': sum_system_rate_bps,
