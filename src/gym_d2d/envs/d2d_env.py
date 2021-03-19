@@ -158,47 +158,16 @@ class D2DEnv(gym.Env):
         return int(rb), int(tx_pwr_dBm)
 
     def _info(self, actions: Dict[Id, Action], results: dict):
-        info = {}
-        sum_cue_sinr, sum_system_sinr = 0.0, 0.0
-        sum_cue_rate_bps, sum_due_rate_bps, sum_system_rate_bps = 0.0, 0.0, 0.0
-        sum_cue_capacity, sum_due_capacity, sum_system_capacity = 0.0, 0.0, 0.0
-        for ((tx_id, rx_id), sinr_db), capacity in zip(results['sinrs_db'].items(), results['capacity_mbps'].values()):
-            sum_system_sinr += sinr_db
-            sum_system_rate_bps += results['rate_bps'][(tx_id, rx_id)]
-            sum_system_capacity += capacity
-            if tx_id in self.simulator.devices.due_pairs:
-                info[tx_id] = {
-                    'rb': actions[tx_id].rb,
-                    'tx_pwr_dbm': actions[tx_id].tx_pwr_dBm,
-                    'due_sinr_db': sinr_db,
-                    'due_rate_bps': results['rate_bps'][(tx_id, rx_id)],
-                    'due_capacity_mbps': capacity,
-                }
-                sum_due_rate_bps += results['rate_bps'][(tx_id, rx_id)]
-                sum_due_capacity += capacity
-            else:
-                sum_cue_sinr += sinr_db
-                sum_cue_rate_bps += results['rate_bps'][(tx_id, rx_id)]
-                sum_cue_capacity += capacity
-
-        aggregate_info = {
-            'env_mean_cue_sinr_db': sum_cue_sinr / len(self.simulator.devices.cues),
-            'env_mean_system_sinr_db':
-                sum_system_sinr / (len(self.simulator.devices.cues) + len(self.simulator.devices.due_pairs)),
-            'env_sum_cue_rate_bps': sum_cue_rate_bps,
-            'env_sum_due_rate_bps': sum_due_rate_bps,
-            'env_sum_system_rate_bps': sum_system_rate_bps,
-            'env_sum_cue_capacity_mbps': sum_cue_capacity,
-            'env_sum_due_capacity_mbps': sum_due_capacity,
-            'env_sum_system_capacity_mbps': sum_system_capacity,
-        }
-        if self.config.compressed_info:
-            for tx_id, tx_info in info.items():
-                tx_info.update(aggregate_info)
-        else:
-            info['__env__'] = aggregate_info
-
-        return info
+        return {
+            tx_id: {
+                'rb': actions[tx_id].rb,
+                'tx_pwr_dbm': actions[tx_id].tx_pwr_dBm,
+                # 'channel_gains_db': results['channel_gains_db'][(tx_id, rx_id)],
+                'snr_db': results['snrs_db'][(tx_id, rx_id)],
+                'sinr_db': sinr_db,
+                'rate_bps': results['rate_bps'][(tx_id, rx_id)],
+                'capacity_mbps': results['capacity_mbps'][(tx_id, rx_id)],
+            } for (tx_id, rx_id), sinr_db in results['sinrs_db'].items()}
 
     def render(self, mode='human'):
         obs = self.obs_fn.get_state({})  # @todo need to find a way to handle SINRs here
