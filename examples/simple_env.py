@@ -30,5 +30,4 @@ for _ in range(10):
         actions_dict[agent_id] = action
 
     obses, rewards_dict, game_over, info = env.step(actions_dict)
-    # env.render()
-    print(obses)
+    env.render()

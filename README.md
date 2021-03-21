@@ -5,8 +5,8 @@ It is highly configurable, allowing users to experiment with UE configuration, p
 
 GymD2D models a D2D cellular offload scenario containing a single macro base station surrounded with many cellular (CUE) and D2D (DUE) user equipment. 
 
-This project is still under active development and we haven't finished the first stable release yet.
-_Some functionality, such as `env.render()` are not currently working._
+This project is still under active development and the API hasn't stabilised yet. 
+Breaking changes are likely to occur between releases.
 
 If you have found this project useful in your research, please consider citing our [white paper](https://arxiv.org/abs/2101.11188) (preprint, forthcoming at [IEEE WCNC 2021](https://wcnc2021.ieee-wcnc.org/)).
 ```bibtex

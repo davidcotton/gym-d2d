@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='gym_d2d',
-    version='0.0.1',
+    version='0.0.3',
     description='Device-to-Device (D2D) communication OpenAI Gym environment',
     keywords='open ai gym environment rl agent d2d cellular offload resource allocation',
     url='https://github.com/davidcotton/gym-d2d',
