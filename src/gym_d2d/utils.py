@@ -38,7 +38,7 @@ def plot_devices(env, out_file: str = ''):
     fig = plt.figure()
     ax = fig.add_subplot(111)
     mbs_pos = env.simulator.devices.bs.position
-    ax.add_artist(plt.Circle(mbs_pos.as_tuple(), env.config.cell_radius_m, color='b', alpha=0.1))
+    ax.add_artist(plt.Circle(mbs_pos.as_tuple(), env.simulator.config.cell_radius_m, color='b', alpha=0.1))
     ax.scatter(due_tx_xs, due_tx_ys, c='r', label='DUE_TX')
     ax.scatter(due_rx_xs, due_rx_ys, c='m', label='DUE_RX')
     ax.scatter(cue_xs, cue_ys, c='b', label='CUE')

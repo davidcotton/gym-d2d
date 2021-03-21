@@ -5,21 +5,87 @@ from typing import Dict, Tuple
 from .action import Action
 from .channel import Channel
 from .conversion import dB_to_linear, linear_to_dB
+from .device import BaseStation, UserEquipment
 from .envs.devices import Devices
+from .envs.env_config import EnvConfig
 from .id import Id
 from .path_loss import PathLoss
+from .position import get_random_position_nearby, get_random_position, Position
 from .traffic_model import TrafficModel
 
 
+BASE_STATION_ID = 'mbs'
+
+
+def create_devices(config: EnvConfig) -> Devices:
+    """Initialise devices: BSs, CUEs & DUE pairs as per the env config.
+
+    :returns: A dataclass containing BSs, CUEs, and DUE pairs.
+    """
+
+    base_cfg = {
+        'num_subcarriers': config.num_subcarriers,
+        'subcarrier_spacing_kHz': config.subcarrier_spacing_kHz,
+    }
+
+    # create macro base station
+    cfg = config.devices[BASE_STATION_ID]['config'] if BASE_STATION_ID in config.devices else base_cfg
+    bs = BaseStation(Id(BASE_STATION_ID), cfg)
+
+    # create cellular UEs
+    cues = {}
+    default_cue_cfg = {**base_cfg, **{'max_tx_power_dBm': config.cue_max_tx_power_dBm}}
+    for i in range(config.num_cues):
+        cue_id = Id(f'cue{i:02d}')
+        cfg = config.devices[cue_id]['config'] if cue_id in config.devices else default_cue_cfg
+        cues[cue_id] = UserEquipment(cue_id, cfg)
+
+    # create D2D UE pairs
+    dues = {}
+    due_cfg = {**base_cfg, **{'max_tx_power_dBm': config.due_max_tx_power_dBm}}
+    for i in range(0, (config.num_due_pairs * 2), 2):
+        due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
+
+        due_tx_cfg = config.devices[due_tx_id]['config'] if due_tx_id in config.devices else due_cfg
+        due_tx = UserEquipment(due_tx_id, due_tx_cfg)
+
+        due_rx_cfg = config.devices[due_rx_id]['config'] if due_rx_id in config.devices else due_cfg
+        due_rx = UserEquipment(due_rx_id, due_rx_cfg)
+
+        dues[(due_tx.id, due_rx.id)] = due_tx, due_rx
+
+    return Devices(bs, cues, dues)
+
+
 class Simulator:
-    def __init__(self, devices: Devices, traffic_model: TrafficModel, path_loss: PathLoss) -> None:
+    def __init__(self, env_config: dict) -> None:
         super().__init__()
-        self.devices: Devices = devices
-        self.traffic_model: TrafficModel = traffic_model
-        self.path_loss: PathLoss = path_loss
+        self.config = EnvConfig(**env_config)
+        self.devices: Devices = create_devices(self.config)
+        self.traffic_model: TrafficModel = self.config.traffic_model(
+            self.devices.bs,
+            list(self.devices.cues.values()),
+            self.config.num_rbs
+        )
+        self.path_loss: PathLoss = self.config.path_loss_model(self.config.carrier_freq_GHz)
         self.channels: Dict[Tuple[Id, Id], Channel] = {}
 
     def reset(self):
+        for device in self.devices.values():
+            if device.id == BASE_STATION_ID:
+                pos = Position(0, 0)  # assume MBS fixed at (0,0) and everything else builds around it
+            elif device.id in self.config.devices:
+                pos = Position(*self.config.devices[device.id]['position'])
+            elif any(device.id in d for d in [self.devices.cues, self.devices.due_pairs]):
+                pos = get_random_position(self.config.cell_radius_m)
+            elif device.id in self.devices.due_pairs_inv:
+                due_tx_id = self.devices.due_pairs_inv[device.id]
+                due_tx = self.devices[due_tx_id]
+                pos = get_random_position_nearby(self.config.cell_radius_m, due_tx.position, self.config.d2d_radius_m)
+            else:
+                raise ValueError(f'Invalid configuration for device "{device.id}".')
+            device.set_position(pos)
+
         self.channels.clear()
 
     def step(self, actions: Dict[Id, Action]) -> dict:
