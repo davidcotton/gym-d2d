@@ -1,5 +1,5 @@
-from gym_d2d.envs.d2d_env import create_devices
 from gym_d2d.envs.env_config import EnvConfig
+from gym_d2d.simulator import create_devices
 
 
 def test_create_devices():
