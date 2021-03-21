@@ -18,7 +18,7 @@ class ObsFunction(ABC):
         pass
 
     @abstractmethod
-    def get_state(self, results: dict) -> Dict[Id, np.array]:
+    def get_state(self, state: dict) -> Dict[Id, np.array]:
         pass
 
 
@@ -30,12 +30,12 @@ class LinearObsFunction(ObsFunction):
         obs_shape = (num_obs * num_txs,)
         return spaces.Box(low=-r, high=r, shape=obs_shape)
 
-    def get_state(self, results: dict) -> Dict[Id, np.array]:
+    def get_state(self, state: dict) -> Dict[Id, np.array]:
         obses = {}
         for (tx_id, rx_id), channel in self.simulator.channels.items():
             obses[tx_id] = list(channel.tx.position.as_tuple() + channel.rx.position.as_tuple())
-            obses[tx_id].append(results['sinrs_db'][(tx_id, rx_id)])
-            obses[tx_id].append(results['snrs_db'][(tx_id, rx_id)])
+            obses[tx_id].append(state['sinrs_db'][(tx_id, rx_id)])
+            obses[tx_id].append(state['snrs_db'][(tx_id, rx_id)])
 
         obs_dict = {}
         for tx_id in obses:

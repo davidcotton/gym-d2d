@@ -85,6 +85,7 @@ class D2DEnv(gym.Env):
             'mbs': spaces.Discrete(self.config.num_rbs * self.num_pwr_actions['mbs']),
         })
         self.reward_fn = self.config.reward_fn(self.simulator)
+        self.state = None
         self.num_steps = 0
 
     def reset(self):
@@ -107,8 +108,8 @@ class D2DEnv(gym.Env):
         self.simulator.reset()
         # take a step with random D2D actions to generate initial SINRs
         random_actions = self._reset_random_actions()
-        results = self.simulator.step(random_actions)
-        obs = self.obs_fn.get_state(results)
+        self.state = self.simulator.step(random_actions)
+        obs = self.obs_fn.get_state(self.state)
         return obs
 
     def _reset_random_actions(self) -> Dict[Id, Action]:
@@ -120,12 +121,12 @@ class D2DEnv(gym.Env):
 
     def step(self, actions):
         actions = self._extract_actions(actions)
-        results = self.simulator.step(actions)
+        self.state = self.simulator.step(actions)
         self.num_steps += 1
-        obs = self.obs_fn.get_state(results)
-        rewards = self.reward_fn(results)
+        obs = self.obs_fn.get_state(self.state)
+        rewards = self.reward_fn(self.state)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
-        info = self._info(actions, results)
+        info = self._info(actions, self.state)
 
         return obs, rewards, game_over, info
 
@@ -157,20 +158,21 @@ class D2DEnv(gym.Env):
             raise ValueError(f'Unable to decode action type "{type(action)}"')
         return int(rb), int(tx_pwr_dBm)
 
-    def _info(self, actions: Dict[Id, Action], results: dict):
+    def _info(self, actions: Dict[Id, Action], state: dict):
         return {
             tx_id: {
                 'rb': actions[tx_id].rb,
                 'tx_pwr_dbm': actions[tx_id].tx_pwr_dBm,
-                # 'channel_gains_db': results['channel_gains_db'][(tx_id, rx_id)],
-                'snr_db': results['snrs_db'][(tx_id, rx_id)],
+                # 'channel_gains_db': state['channel_gains_db'][(tx_id, rx_id)],
+                'snr_db': state['snrs_db'][(tx_id, rx_id)],
                 'sinr_db': sinr_db,
-                'rate_bps': results['rate_bps'][(tx_id, rx_id)],
-                'capacity_mbps': results['capacity_mbps'][(tx_id, rx_id)],
-            } for (tx_id, rx_id), sinr_db in results['sinrs_db'].items()}
+                'rate_bps': state['rate_bps'][(tx_id, rx_id)],
+                'capacity_mbps': state['capacity_mbps'][(tx_id, rx_id)],
+            } for (tx_id, rx_id), sinr_db in state['sinrs_db'].items()}
 
     def render(self, mode='human'):
-        obs = self.obs_fn.get_state({})  # @todo need to find a way to handle SINRs here
+        assert self.state is not None, 'Initialise environment with `reset()` before calling `render()`'
+        obs = self.obs_fn.get_state(self.state)
         print(obs)
 
     def save_device_config(self, config_file: Path) -> None:
