@@ -24,10 +24,10 @@ class Devices(Mapping):
             self.due_pairs[tx_id] = rx_id
             self.due_pairs_inv[rx_id] = tx_id
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: Id) -> Device:
         return self._devices[key]
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._devices)
 
     def __iter__(self):
