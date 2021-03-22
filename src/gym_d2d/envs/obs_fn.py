@@ -6,12 +6,13 @@ import numpy as np
 
 from gym_d2d.channel import Channel
 from gym_d2d.envs.devices import Devices
+from gym_d2d.envs.env_config import EnvConfig
 from gym_d2d.id import Id
 
 
 class ObsFunction(ABC):
     @abstractmethod
-    def get_obs_space(self, env_config: dict) -> Space:
+    def get_obs_space(self, env_config: EnvConfig) -> Space:
         pass
 
     @abstractmethod
@@ -20,9 +21,9 @@ class ObsFunction(ABC):
 
 
 class LinearObsFunction(ObsFunction):
-    def get_obs_space(self, env_config: dict) -> Space:
-        r = env_config['cell_radius_m']
-        num_txs = env_config['num_cues'] + env_config['num_due_pairs']
+    def get_obs_space(self, env_config: EnvConfig) -> Space:
+        r = env_config.cell_radius_m
+        num_txs = env_config.num_cues + env_config.num_due_pairs
         num_obs = 6  # tx_x, tx_y, rx_x, rx_y, sinr, snr
         obs_shape = (num_obs * num_txs,)
         return spaces.Box(low=-r, high=r, shape=obs_shape)

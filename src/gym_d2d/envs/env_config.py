@@ -3,8 +3,6 @@ import json
 from pathlib import Path
 from typing import Optional, Type
 
-from .obs_fn import ObsFunction, LinearObsFunction
-from .reward_fn import RewardFunction, SystemCapacityRewardFunction
 from gym_d2d.path_loss import PathLoss, LogDistancePathLoss
 from gym_d2d.traffic_model import TrafficModel, UplinkTrafficModel
 
@@ -26,9 +24,6 @@ class EnvConfig:
     num_subcarriers: int = 12
     subcarrier_spacing_kHz: int = 15
     channel_bandwidth_MHz: float = 20.0
-    obs_fn: Type[ObsFunction] = LinearObsFunction
-    reward_fn: Type[RewardFunction] = SystemCapacityRewardFunction
-    compressed_info: bool = False
     device_config_file: Optional[Path] = None
 
     def __post_init__(self):
