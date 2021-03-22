@@ -4,7 +4,7 @@ from math import log2
 from typing import Dict, Tuple
 
 from gym_d2d.channel import Channel
-from gym_d2d.envs.devices import Devices
+from gym_d2d.devices import Devices
 from gym_d2d.id import Id
 from gym_d2d.conversion import dB_to_linear
 from gym_d2d.link_type import LinkType
