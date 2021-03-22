@@ -1,9 +1,9 @@
-from collections import defaultdict
 from math import log2
 from typing import Dict, Tuple
 
 from .action import Action
 from .channel import Channel
+from .channels import Channels
 from .conversion import dB_to_linear, linear_to_dB
 from .device import BaseStation, UserEquipment
 from .devices import Devices
@@ -62,11 +62,11 @@ class Simulator:
         super().__init__()
         self.config = EnvConfig(**env_config)
         self.devices: Devices = create_devices(self.config)
+        self.channels = Channels()
         self.traffic_model: TrafficModel = self.config.traffic_model(self.config.num_rbs)
         self.path_loss: PathLoss = self.config.path_loss_model(self.config.carrier_freq_GHz)
-        self.channels: Dict[Tuple[Id, Id], Channel] = {}
 
-    def reset(self):
+    def reset(self) -> None:
         for device in self.devices.values():
             if device.id == BASE_STATION_ID:
                 pos = Position(0, 0)  # assume MBS fixed at (0,0) and everything else builds around it
@@ -81,7 +81,6 @@ class Simulator:
             else:
                 raise ValueError(f'Invalid configuration for device "{device.id}".')
             device.set_position(pos)
-
         self.channels.clear()
 
     def step(self, actions: Dict[Id, Action]) -> dict:
@@ -105,17 +104,12 @@ class Simulator:
             self.channels[(tx.id, rx.id)] = Channel(tx, rx, action.mode, action.rb, action.tx_pwr_dBm)
 
     def _calculate_sinrs(self) -> Dict[Tuple[Id, Id], float]:
-        # group channels by RB
-        rbs = defaultdict(set)
-        for channel in self.channels.values():
-            rbs[channel.rb].add(channel)
-
         sinrs_db = {}
         for (tx_id, rx_id), channel in self.channels.items():
             tx, rx = channel.tx, channel.rx
             rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(channel.tx_pwr_dBm), self.path_loss(tx, rx))
 
-            ix_channels = rbs[channel.rb].difference({channel})
+            ix_channels = self.channels.get_channels_by_rb(channel.rb).difference({channel})
             sum_ix_pwr_mW = 0.0
             for ix_channel in ix_channels:
                 ix_tx = ix_channel.tx

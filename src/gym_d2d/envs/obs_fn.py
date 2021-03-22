@@ -1,10 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Tuple
+from typing import Dict
 
 from gym import Space, spaces
 import numpy as np
 
-from gym_d2d.channel import Channel
+from gym_d2d.channels import Channels
 from gym_d2d.devices import Devices
 from gym_d2d.envs.env_config import EnvConfig
 from gym_d2d.id import Id
@@ -16,7 +16,7 @@ class ObsFunction(ABC):
         pass
 
     @abstractmethod
-    def get_state(self, state: dict, channels: Dict[Tuple[Id, Id], Channel], devices: Devices) -> Dict[Id, np.array]:
+    def get_state(self, state: dict, channels: Channels, devices: Devices) -> Dict[Id, np.array]:
         pass
 
 
@@ -28,7 +28,7 @@ class LinearObsFunction(ObsFunction):
         obs_shape = (num_obs * num_txs,)
         return spaces.Box(low=-r, high=r, shape=obs_shape)
 
-    def get_state(self, state: dict, channels: Dict[Tuple[Id, Id], Channel], devices: Devices) -> Dict[Id, np.array]:
+    def get_state(self, state: dict, channels: Channels, devices: Devices) -> Dict[Id, np.array]:
         obses = {}
         for (tx_id, rx_id), channel in channels.items():
             obses[tx_id] = list(channel.tx.position.as_tuple() + channel.rx.position.as_tuple())
