@@ -25,8 +25,9 @@ class D2DEnv(gym.Env):
     def __init__(self, env_config=None) -> None:
         super().__init__()
         env_config = env_config or {}
+        self.obs_fn = env_config.pop('obs_fn', DEFAULT_OBS_FN)()
+        self.reward_fn = env_config.pop('reward_fn', DEFAULT_REWARD_FN)()
         self.simulator = Simulator(env_config)
-        self.obs_fn = env_config.get('obs_fn', DEFAULT_OBS_FN)()
         self.observation_space = self.obs_fn.get_obs_space(self.simulator.config)
         self.num_pwr_actions = {  # +1 because include max value, i.e. from [0, ..., max]
             'due': self.simulator.config.due_max_tx_power_dBm - self.simulator.config.due_min_tx_power_dBm + 1,
@@ -38,7 +39,6 @@ class D2DEnv(gym.Env):
             'cue': spaces.Discrete(self.simulator.config.num_rbs * self.num_pwr_actions['cue']),
             'mbs': spaces.Discrete(self.simulator.config.num_rbs * self.num_pwr_actions['mbs']),
         })
-        self.reward_fn = env_config.get('reward_fn', DEFAULT_REWARD_FN)()
         self.state = None
         self.num_steps = 0
 
