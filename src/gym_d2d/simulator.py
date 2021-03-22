@@ -6,7 +6,7 @@ from .action import Action
 from .channel import Channel
 from .conversion import dB_to_linear, linear_to_dB
 from .device import BaseStation, UserEquipment
-from .envs.devices import Devices
+from .devices import Devices
 from .envs.env_config import EnvConfig
 from .id import Id
 from .path_loss import PathLoss

@@ -5,7 +5,7 @@ from gym import Space, spaces
 import numpy as np
 
 from gym_d2d.channel import Channel
-from gym_d2d.envs.devices import Devices
+from gym_d2d.devices import Devices
 from gym_d2d.envs.env_config import EnvConfig
 from gym_d2d.id import Id
 

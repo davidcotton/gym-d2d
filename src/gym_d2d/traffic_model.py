@@ -1,7 +1,7 @@
 from typing import Dict, Tuple
 
 from .channel import Channel
-from .envs.devices import Devices
+from .devices import Devices
 from .id import Id
 from .link_type import LinkType
 
