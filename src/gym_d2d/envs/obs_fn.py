@@ -29,18 +29,18 @@ class LinearObsFunction(ObsFunction):
         return spaces.Box(low=-r, high=r, shape=obs_shape)
 
     def get_state(self, state: dict, channels: Channels, devices: Devices) -> Dict[Id, np.array]:
-        obses = {}
+        agent_obs = {}
         for (tx_id, rx_id), channel in channels.items():
-            obses[tx_id] = list(channel.tx.position.as_tuple() + channel.rx.position.as_tuple())
-            obses[tx_id].append(state['sinrs_db'][(tx_id, rx_id)])
-            obses[tx_id].append(state['snrs_db'][(tx_id, rx_id)])
+            agent_obs[tx_id] = list(channel.tx.position.as_tuple() + channel.rx.position.as_tuple())
+            agent_obs[tx_id].append(state['sinrs_db'][(tx_id, rx_id)])
+            agent_obs[tx_id].append(state['snrs_db'][(tx_id, rx_id)])
 
-        obs_dict = {}
-        for tx_id in obses:
-            tx_obs_copy = obses[tx_id][:]
-            for other_tx_id, other_obs in obses.items():
+        obses = {}
+        for tx_id in agent_obs:
+            tx_obs_copy = agent_obs[tx_id][:]
+            for other_tx_id, other_obs in agent_obs.items():
                 if other_tx_id != tx_id:
                     tx_obs_copy.extend(other_obs)
-            obs_dict[tx_id] = np.array(tx_obs_copy)
+            obses[tx_id] = np.array(tx_obs_copy)
 
-        return obs_dict
+        return obses
