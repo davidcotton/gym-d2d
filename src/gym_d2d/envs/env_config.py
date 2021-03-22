@@ -24,7 +24,6 @@ class EnvConfig:
     num_subcarriers: int = 12
     subcarrier_spacing_kHz: int = 15
     channel_bandwidth_MHz: float = 20.0
-    compressed_info: bool = False
     device_config_file: Optional[Path] = None
 
     def __post_init__(self):
