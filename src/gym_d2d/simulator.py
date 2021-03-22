@@ -62,11 +62,7 @@ class Simulator:
         super().__init__()
         self.config = EnvConfig(**env_config)
         self.devices: Devices = create_devices(self.config)
-        self.traffic_model: TrafficModel = self.config.traffic_model(
-            self.devices.bs,
-            list(self.devices.cues.values()),
-            self.config.num_rbs
-        )
+        self.traffic_model: TrafficModel = self.config.traffic_model(self.config.num_rbs)
         self.path_loss: PathLoss = self.config.path_loss_model(self.config.carrier_freq_GHz)
         self.channels: Dict[Tuple[Id, Id], Channel] = {}
 
@@ -102,7 +98,7 @@ class Simulator:
 
     def _generate_traffic(self, actions: Dict[Id, Action]) -> None:
         # automated traffic
-        # self.channels = self.traffic_model.get_traffic()
+        # self.channels = self.traffic_model.get_traffic(self.devices)
         # supplied actions
         for action in actions.values():
             tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]
