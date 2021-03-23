@@ -1,7 +1,7 @@
 from math import log2
 from typing import Dict, Tuple
 
-from .action import Action
+from .action import Actions
 from .channel import Channel
 from .channels import Channels
 from .conversion import dB_to_linear, linear_to_dB
@@ -20,6 +20,7 @@ BASE_STATION_ID = Id('mbs')
 def create_devices(config: EnvConfig) -> Devices:
     """Initialise devices: BSs, CUEs & DUE pairs as per the env config.
 
+    :param config: The environment's configuration.
     :returns: A dataclass containing BSs, CUEs, and DUE pairs.
     """
 
@@ -83,7 +84,7 @@ class Simulator:
             device.set_position(pos)
         self.channels.clear()
 
-    def step(self, actions: Dict[Tuple[Id, Id], Action]) -> dict:
+    def step(self, actions: Actions) -> dict:
         self._generate_traffic(actions)
         sinrs_db = self._calculate_sinrs()
         capacities = self._calculate_network_capacity(sinrs_db)
@@ -95,7 +96,7 @@ class Simulator:
             'capacity_mbps': capacities,
         }
 
-    def _generate_traffic(self, actions: Dict[Tuple[Id, Id], Action]) -> None:
+    def _generate_traffic(self, actions: Actions) -> None:
         # automated traffic
         # self.channels = self.traffic_model.get_traffic(self.devices)
         # supplied actions

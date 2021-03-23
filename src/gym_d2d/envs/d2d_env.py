@@ -6,7 +6,7 @@ import gym
 from gym import spaces
 import numpy as np
 
-from gym_d2d.action import Action
+from gym_d2d.action import Action, Actions
 from gym_d2d.envs.obs_fn import LinearObsFunction
 from gym_d2d.envs.reward_fn import SystemCapacityRewardFunction
 from gym_d2d.id import Id
@@ -50,7 +50,7 @@ class D2DEnv(gym.Env):
         obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
         return obs
 
-    def _reset_random_actions(self) -> Dict[Tuple[Id, Id], Action]:
+    def _reset_random_actions(self) -> Actions:
         cue_actions = {
             (tx_id, BASE_STATION_ID): self._extract_action(tx_id, BASE_STATION_ID, self.action_space['cue'].sample())
             for tx_id in self.simulator.devices.cues.keys()}
@@ -58,18 +58,18 @@ class D2DEnv(gym.Env):
                        for tx_rx_id in self.simulator.devices.dues.keys()}
         return {**cue_actions, **due_actions}
 
-    def step(self, actions: Dict[str, Any]):
-        actions = self._extract_actions(actions)
+    def step(self, raw_actions: Dict[str, Any]):
+        actions = self._extract_actions(raw_actions)
         self.state = self.simulator.step(actions)
         self.num_steps += 1
         obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
-        rewards = self.reward_fn(self.state, self.simulator.channels, self.simulator.devices)
+        rewards = self.reward_fn(actions, self.state, self.simulator.channels, self.simulator.devices)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
         info = self._info(actions, self.state)
 
         return obs, rewards, game_over, info
 
-    def _extract_actions(self, raw_actions: Dict[str, Any]) -> Dict[Tuple[Id, Id], Action]:
+    def _extract_actions(self, raw_actions: Dict[str, Any]) -> Actions:
         actions = {}
         for id_pair_str, action in raw_actions.items():
             tx_rx_id = tuple([Id(_id) for _id in id_pair_str.split(':')])
@@ -98,7 +98,7 @@ class D2DEnv(gym.Env):
             raise ValueError(f'Unable to decode action type "{type(action)}"')
         return int(rb), int(tx_pwr_dBm)
 
-    def _info(self, actions: Dict[Tuple[Id, Id], Action], state: dict) -> Dict[str, Any]:
+    def _info(self, actions: Actions, state: dict) -> Dict[str, Any]:
         return {
             ':'.join(tx_rx_id): {
                 'rb': action.rb,
