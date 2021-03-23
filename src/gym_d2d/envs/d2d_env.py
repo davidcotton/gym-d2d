@@ -56,7 +56,7 @@ class D2DEnv(gym.Env):
             for tx_id in self.simulator.devices.cues.keys()}
         due_actions = {tx_rx_id: self._extract_action(*tx_rx_id, self.action_space['due'].sample())
                        for tx_rx_id in self.simulator.devices.dues.keys()}
-        return {**cue_actions, **due_actions}
+        return Actions({**cue_actions, **due_actions})
 
     def step(self, raw_actions: Dict[str, Any]):
         actions = self._extract_actions(raw_actions)
@@ -70,7 +70,7 @@ class D2DEnv(gym.Env):
         return obs, rewards, game_over, info
 
     def _extract_actions(self, raw_actions: Dict[str, Any]) -> Actions:
-        actions = {}
+        actions = Actions()
         for id_pair_str, action in raw_actions.items():
             tx_rx_id = tuple([Id(_id) for _id in id_pair_str.split(':')])
             actions[tx_rx_id] = self._extract_action(*tx_rx_id, action)
