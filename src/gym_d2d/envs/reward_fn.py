@@ -49,19 +49,16 @@ class SystemCapacityRewardFunction(RewardFunction):
         return {':'.join(tx_rx_id): reward for tx_rx_id in actions.keys()}
 
 
-class DueShannonRewardFunction(RewardFunction):
-    def __init__(self) -> None:
+class ShannonRewardFunction(RewardFunction):
+    def __init__(self, min_sinr=-70.0) -> None:
         super().__init__()
-        self.min_sinr = -70.0
+        self.min_sinr: float = min_sinr
 
     def __call__(self, actions: Actions, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         rewards = {}
-        for tx_id, rx_id in devices.due_pairs.items():
-            sinr = state['sinrs_db'][(tx_id, rx_id)]
-            if sinr >= self.min_sinr:
-                rewards[tx_id] = log2(1 + dB_to_linear(sinr))
-            else:
-                rewards[tx_id] = -1
+        for tx_rx_id, action in actions.items():
+            sinr = state['sinrs_db'][tx_rx_id]
+            rewards[':'.join(tx_rx_id)] = log2(1 + dB_to_linear(sinr)) if sinr >= self.min_sinr else -1.0
         return rewards
 
 
