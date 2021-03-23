@@ -1,7 +1,7 @@
 from math import log2
 from typing import Dict, Tuple
 
-from .action import Actions
+from .actions import Actions
 from .channel import Channel
 from .channels import Channels
 from .conversion import dB_to_linear, linear_to_dB
@@ -102,7 +102,7 @@ class Simulator:
         # supplied actions
         for tx_rx_id, action in actions.items():
             tx, rx = self.devices[tx_rx_id[0]], self.devices[tx_rx_id[1]]
-            self.channels[tx_rx_id] = Channel(tx, rx, action.mode, action.rb, action.tx_pwr_dBm)
+            self.channels[tx_rx_id] = Channel(tx, rx, action.link_type, action.rb, action.tx_pwr_dBm)
 
     def _calculate_sinrs(self) -> Dict[Tuple[Id, Id], float]:
         sinrs_db = {}

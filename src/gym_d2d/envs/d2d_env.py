@@ -6,7 +6,7 @@ import gym
 from gym import spaces
 import numpy as np
 
-from gym_d2d.action import Action, Actions
+from gym_d2d.actions import Action, Actions
 from gym_d2d.envs.obs_fn import LinearObsFunction
 from gym_d2d.envs.reward_fn import SystemCapacityRewardFunction
 from gym_d2d.id import Id
@@ -86,7 +86,8 @@ class D2DEnv(gym.Env):
         else:
             link_type = LinkType.DOWNLINK
             rb, tx_pwr_dBm = self._decode_action(action, 'mbs')
-        return Action(tx_id, rx_id, link_type, rb, tx_pwr_dBm)
+        tx, rx = self.simulator.devices[tx_id], self.simulator.devices[rx_id]
+        return Action(tx, rx, link_type, rb, tx_pwr_dBm)
 
     def _decode_action(self, action: Any, tx_type: str) -> Tuple[int, int]:
         if isinstance(action, (int, np.integer)):

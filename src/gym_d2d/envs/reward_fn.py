@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from math import log2
 from typing import Dict
 
-from gym_d2d.action import Actions
+from gym_d2d.actions import Actions
 from gym_d2d.channels import Channels
 from gym_d2d.conversion import dB_to_linear
 from gym_d2d.link_type import LinkType
@@ -29,7 +29,7 @@ class SystemCapacityRewardFunction(RewardFunction):
     def __call__(self, actions: Actions, state: dict, channels: Channels) -> Dict[str, float]:
         reward = -1.0
         for tx_rx_id, action in actions.items():
-            if action.mode != LinkType.SIDELINK:
+            if action.link_type != LinkType.SIDELINK:
                 continue
             channel = channels[tx_rx_id]
             ix_channels = channels.get_channels_by_rb(channel.rb).difference({channel})
