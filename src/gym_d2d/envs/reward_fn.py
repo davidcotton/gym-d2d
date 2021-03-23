@@ -26,7 +26,7 @@ class RewardFunction(ABC):
 class SystemCapacityRewardFunction(RewardFunction):
     def __init__(self, min_capacity_mbps=0.0) -> None:
         super().__init__()
-        self.min_capacity_mbps: float = min_capacity_mbps
+        self.min_capacity_mbps = float(min_capacity_mbps)
 
     def __call__(self, actions: Actions, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         reward = -1.0
@@ -52,7 +52,7 @@ class SystemCapacityRewardFunction(RewardFunction):
 class ShannonRewardFunction(RewardFunction):
     def __init__(self, min_sinr=-70.0) -> None:
         super().__init__()
-        self.min_sinr: float = min_sinr
+        self.min_sinr = float(min_sinr)
 
     def __call__(self, actions: Actions, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         rewards = {}
@@ -65,19 +65,20 @@ class ShannonRewardFunction(RewardFunction):
 class CueSinrShannonRewardFunction(RewardFunction):
     def __init__(self, sinr_threshold_dB=0.0) -> None:
         super().__init__()
-        self.sinr_threshold_dB: float = float(sinr_threshold_dB)
+        self.sinr_threshold_dB = float(sinr_threshold_dB)
 
     def __call__(self, actions: Actions, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         rewards = {}
-        for tx_id, rx_id in devices.due_pairs.items():
-            channel = channels[(tx_id, rx_id)]
+        for tx_rx_id, action in actions.items():
+            channel = channels[tx_rx_id]
             ix_channels = channels.get_channels_by_rb(channel.rb).difference({channel})
-            rewards[tx_id] = -1
+            reward = -1.0
             for ix_channel in ix_channels:
                 if ix_channel.link_type != LinkType.SIDELINK:
                     cue_sinr_dB = state['sinrs_db'][(ix_channel.tx.id, ix_channel.rx.id)]
                     if cue_sinr_dB < self.sinr_threshold_dB:
                         break
             else:
-                rewards[tx_id] = log2(1 + dB_to_linear(state['sinrs_db'][(tx_id, rx_id)]))
+                reward = log2(1 + dB_to_linear(state['sinrs_db'][tx_rx_id]))
+            rewards[':'.join(tx_rx_id)] = reward
         return rewards
