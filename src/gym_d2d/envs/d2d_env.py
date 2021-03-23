@@ -38,6 +38,7 @@ class D2DEnv(gym.Env):
             'cue': spaces.Discrete(self.simulator.config.num_rbs * self.num_pwr_actions['cue']),
             'mbs': spaces.Discrete(self.simulator.config.num_rbs * self.num_pwr_actions['mbs']),
         })
+        self.actions = None
         self.state = None
         self.num_steps = 0
 
@@ -45,9 +46,9 @@ class D2DEnv(gym.Env):
         self.num_steps = 0
         self.simulator.reset()
         # take a step with random D2D actions to generate initial SINRs
-        random_actions = self._reset_random_actions()
-        self.state = self.simulator.step(random_actions)
-        obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
+        self.actions = self._reset_random_actions()
+        self.state = self.simulator.step(self.actions)
+        obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices)
         return obs
 
     def _reset_random_actions(self) -> Actions:
@@ -59,13 +60,13 @@ class D2DEnv(gym.Env):
         return Actions({**cue_actions, **due_actions})
 
     def step(self, raw_actions: Dict[str, Any]):
-        actions = self._extract_actions(raw_actions)
-        self.state = self.simulator.step(actions)
+        self.actions = self._extract_actions(raw_actions)
+        self.state = self.simulator.step(self.actions)
         self.num_steps += 1
-        obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
-        rewards = self.reward_fn(actions, self.state)
+        obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices)
+        rewards = self.reward_fn(self.actions, self.state)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
-        info = self._info(actions, self.state)
+        info = self._info(self.actions, self.state)
 
         return obs, rewards, game_over, info
 
@@ -112,8 +113,9 @@ class D2DEnv(gym.Env):
             } for tx_rx_id, action in actions.items()}
 
     def render(self, mode='human'):
-        assert self.state is not None, 'Initialise environment with `reset()` before calling `render()`'
-        obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
+        assert self.state is not None and self.actions is not None, \
+            'Initialise environment with `reset()` before calling `render()`'
+        obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices)
         print(obs)
 
     def save_device_config(self, config_file: Path) -> None:
