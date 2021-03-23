@@ -24,59 +24,61 @@ class RewardFunction(ABC):
 
 
 class SystemCapacityRewardFunction(RewardFunction):
+    def __init__(self, min_capacity_mbps=0.0) -> None:
+        super().__init__()
+        self.min_capacity_mbps = float(min_capacity_mbps)
+
     def __call__(self, actions: Actions, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
-        reward = -1
-        _break = False
-        for tx_id, rx_id in devices.due_pairs.items():
-            if _break:
-                break
-            channel = channels[(tx_id, rx_id)]
+        reward = -1.0
+        for tx_rx_id, action in actions.items():
+            if action.mode != LinkType.SIDELINK:
+                continue
+            channel = channels[tx_rx_id]
             ix_channels = channels.get_channels_by_rb(channel.rb).difference({channel})
             for ix_channel in ix_channels:
-                if ix_channel.tx.id in devices.due_pairs:
+                if ix_channel.link_type == LinkType.SIDELINK:
                     continue
-                if state['capacity_mbps'][(ix_channel.tx.id, ix_channel.rx.id)] <= 0:
-                    _break = True
+                if state['capacity_mbps'][(ix_channel.tx.id, ix_channel.rx.id)] <= self.min_capacity_mbps:
                     break
+            else:
+                continue
+            break
         else:
-            sum_capacity = sum(state['capacity_mbps'].values())
-            reward = sum_capacity / len(devices.due_pairs)
+            reward = sum(state['capacity_mbps'].values()) / len(actions)
 
         return {':'.join(tx_rx_id): reward for tx_rx_id in actions.keys()}
 
 
-class DueShannonRewardFunction(RewardFunction):
-    def __init__(self) -> None:
+class ShannonRewardFunction(RewardFunction):
+    def __init__(self, min_sinr=-70.0) -> None:
         super().__init__()
-        self.min_sinr = -70.0
+        self.min_sinr = float(min_sinr)
 
     def __call__(self, actions: Actions, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         rewards = {}
-        for tx_id, rx_id in devices.due_pairs.items():
-            sinr = state['sinrs_db'][(tx_id, rx_id)]
-            if sinr >= self.min_sinr:
-                rewards[tx_id] = log2(1 + dB_to_linear(sinr))
-            else:
-                rewards[tx_id] = -1
+        for tx_rx_id, action in actions.items():
+            sinr = state['sinrs_db'][tx_rx_id]
+            rewards[':'.join(tx_rx_id)] = log2(1 + dB_to_linear(sinr)) if sinr >= self.min_sinr else -1.0
         return rewards
 
 
 class CueSinrShannonRewardFunction(RewardFunction):
     def __init__(self, sinr_threshold_dB=0.0) -> None:
         super().__init__()
-        self.sinr_threshold_dB: float = float(sinr_threshold_dB)
+        self.sinr_threshold_dB = float(sinr_threshold_dB)
 
     def __call__(self, actions: Actions, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         rewards = {}
-        for tx_id, rx_id in devices.due_pairs.items():
-            channel = channels[(tx_id, rx_id)]
+        for tx_rx_id, action in actions.items():
+            channel = channels[tx_rx_id]
             ix_channels = channels.get_channels_by_rb(channel.rb).difference({channel})
-            rewards[tx_id] = -1
+            reward = -1.0
             for ix_channel in ix_channels:
                 if ix_channel.link_type != LinkType.SIDELINK:
                     cue_sinr_dB = state['sinrs_db'][(ix_channel.tx.id, ix_channel.rx.id)]
                     if cue_sinr_dB < self.sinr_threshold_dB:
                         break
             else:
-                rewards[tx_id] = log2(1 + dB_to_linear(state['sinrs_db'][(tx_id, rx_id)]))
+                reward = log2(1 + dB_to_linear(state['sinrs_db'][tx_rx_id]))
+            rewards[':'.join(tx_rx_id)] = reward
         return rewards
