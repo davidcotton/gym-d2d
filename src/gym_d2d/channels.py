@@ -17,7 +17,4 @@ class Channels(UserDict):
         if not self._rbs:
             for channel in self.data.values():
                 self._rbs[channel.rb].add(channel)
-        if rb in self._rbs:
-            return self._rbs[rb]
-        else:
-            raise KeyError(rb)
+        return self._rbs[rb]
