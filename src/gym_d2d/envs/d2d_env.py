@@ -63,7 +63,7 @@ class D2DEnv(gym.Env):
         self.state = self.simulator.step(actions)
         self.num_steps += 1
         obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
-        rewards = self.reward_fn(actions, self.state, self.simulator.channels, self.simulator.devices)
+        rewards = self.reward_fn(actions, self.state, self.simulator.channels)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
         info = self._info(actions, self.state)
 
