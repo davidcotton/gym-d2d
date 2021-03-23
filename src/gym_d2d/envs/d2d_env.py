@@ -6,7 +6,7 @@ import gym
 from gym import spaces
 import numpy as np
 
-from gym_d2d.action import Action, Actions
+from gym_d2d.actions import Action, Actions
 from gym_d2d.envs.obs_fn import LinearObsFunction
 from gym_d2d.envs.reward_fn import SystemCapacityRewardFunction
 from gym_d2d.id import Id
@@ -38,6 +38,7 @@ class D2DEnv(gym.Env):
             'cue': spaces.Discrete(self.simulator.config.num_rbs * self.num_pwr_actions['cue']),
             'mbs': spaces.Discrete(self.simulator.config.num_rbs * self.num_pwr_actions['mbs']),
         })
+        self.actions = None
         self.state = None
         self.num_steps = 0
 
@@ -45,9 +46,9 @@ class D2DEnv(gym.Env):
         self.num_steps = 0
         self.simulator.reset()
         # take a step with random D2D actions to generate initial SINRs
-        random_actions = self._reset_random_actions()
-        self.state = self.simulator.step(random_actions)
-        obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
+        self.actions = self._reset_random_actions()
+        self.state = self.simulator.step(self.actions)
+        obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices)
         return obs
 
     def _reset_random_actions(self) -> Actions:
@@ -56,21 +57,21 @@ class D2DEnv(gym.Env):
             for tx_id in self.simulator.devices.cues.keys()}
         due_actions = {tx_rx_id: self._extract_action(*tx_rx_id, self.action_space['due'].sample())
                        for tx_rx_id in self.simulator.devices.dues.keys()}
-        return {**cue_actions, **due_actions}
+        return Actions({**cue_actions, **due_actions})
 
     def step(self, raw_actions: Dict[str, Any]):
-        actions = self._extract_actions(raw_actions)
-        self.state = self.simulator.step(actions)
+        self.actions = self._extract_actions(raw_actions)
+        self.state = self.simulator.step(self.actions)
         self.num_steps += 1
-        obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
-        rewards = self.reward_fn(actions, self.state, self.simulator.channels)
+        obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices)
+        rewards = self.reward_fn(self.actions, self.state)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
-        info = self._info(actions, self.state)
+        info = self._info(self.actions, self.state)
 
         return obs, rewards, game_over, info
 
     def _extract_actions(self, raw_actions: Dict[str, Any]) -> Actions:
-        actions = {}
+        actions = Actions()
         for id_pair_str, action in raw_actions.items():
             tx_rx_id = tuple([Id(_id) for _id in id_pair_str.split(':')])
             actions[tx_rx_id] = self._extract_action(*tx_rx_id, action)
@@ -86,7 +87,8 @@ class D2DEnv(gym.Env):
         else:
             link_type = LinkType.DOWNLINK
             rb, tx_pwr_dBm = self._decode_action(action, 'mbs')
-        return Action(tx_id, rx_id, link_type, rb, tx_pwr_dBm)
+        tx, rx = self.simulator.devices[tx_id], self.simulator.devices[rx_id]
+        return Action(tx, rx, link_type, rb, tx_pwr_dBm)
 
     def _decode_action(self, action: Any, tx_type: str) -> Tuple[int, int]:
         if isinstance(action, (int, np.integer)):
@@ -111,8 +113,9 @@ class D2DEnv(gym.Env):
             } for tx_rx_id, action in actions.items()}
 
     def render(self, mode='human'):
-        assert self.state is not None, 'Initialise environment with `reset()` before calling `render()`'
-        obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
+        assert self.state is not None and self.actions is not None, \
+            'Initialise environment with `reset()` before calling `render()`'
+        obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices)
         print(obs)
 
     def save_device_config(self, config_file: Path) -> None:
