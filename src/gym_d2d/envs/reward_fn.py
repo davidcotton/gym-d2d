@@ -4,19 +4,18 @@ from typing import Dict
 
 from gym_d2d.channels import Channels
 from gym_d2d.devices import Devices
-from gym_d2d.id import Id
 from gym_d2d.conversion import dB_to_linear
 from gym_d2d.link_type import LinkType
 
 
 class RewardFunction(ABC):
     @abstractmethod
-    def __call__(self, state: dict, channels: Channels, devices: Devices) -> Dict[Id, float]:
+    def __call__(self, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         pass
 
 
 class SystemCapacityRewardFunction(RewardFunction):
-    def __call__(self, state: dict, channels: Channels, devices: Devices) -> Dict[Id, float]:
+    def __call__(self, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         reward = -1
         _break = False
         for tx_id, rx_id in devices.due_pairs.items():
@@ -34,7 +33,7 @@ class SystemCapacityRewardFunction(RewardFunction):
             sum_capacity = sum(state['capacity_mbps'].values())
             reward = sum_capacity / len(devices.due_pairs)
 
-        return {tx_id: reward for tx_id, _ in channels.keys()}
+        return {':'.join(tx_rx_id): reward for tx_rx_id in channels.keys()}
 
 
 class DueShannonRewardFunction(RewardFunction):
@@ -42,7 +41,7 @@ class DueShannonRewardFunction(RewardFunction):
         super().__init__()
         self.min_sinr = -70.0
 
-    def __call__(self, state: dict, channels: Channels, devices: Devices) -> Dict[Id, float]:
+    def __call__(self, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         rewards = {}
         for tx_id, rx_id in devices.due_pairs.items():
             sinr = state['sinrs_db'][(tx_id, rx_id)]
@@ -58,7 +57,7 @@ class CueSinrShannonRewardFunction(RewardFunction):
         super().__init__()
         self.sinr_threshold_dB: float = float(sinr_threshold_dB)
 
-    def __call__(self, state: dict, channels: Channels, devices: Devices) -> Dict[Id, float]:
+    def __call__(self, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
         rewards = {}
         for tx_id, rx_id in devices.due_pairs.items():
             channel = channels[(tx_id, rx_id)]

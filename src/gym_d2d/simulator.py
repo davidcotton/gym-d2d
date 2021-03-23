@@ -14,7 +14,7 @@ from .position import get_random_position_nearby, get_random_position, Position
 from .traffic_model import TrafficModel
 
 
-BASE_STATION_ID = 'mbs'
+BASE_STATION_ID = Id('mbs')
 
 
 def create_devices(config: EnvConfig) -> Devices:
@@ -83,7 +83,7 @@ class Simulator:
             device.set_position(pos)
         self.channels.clear()
 
-    def step(self, actions: Dict[Id, Action]) -> dict:
+    def step(self, actions: Dict[Tuple[Id, Id], Action]) -> dict:
         self._generate_traffic(actions)
         sinrs_db = self._calculate_sinrs()
         capacities = self._calculate_network_capacity(sinrs_db)
@@ -95,13 +95,13 @@ class Simulator:
             'capacity_mbps': capacities,
         }
 
-    def _generate_traffic(self, actions: Dict[Id, Action]) -> None:
+    def _generate_traffic(self, actions: Dict[Tuple[Id, Id], Action]) -> None:
         # automated traffic
         # self.channels = self.traffic_model.get_traffic(self.devices)
         # supplied actions
-        for action in actions.values():
-            tx, rx = self.devices[action.tx_id], self.devices[action.rx_id]
-            self.channels[(tx.id, rx.id)] = Channel(tx, rx, action.mode, action.rb, action.tx_pwr_dBm)
+        for tx_rx_id, action in actions.items():
+            tx, rx = self.devices[tx_rx_id[0]], self.devices[tx_rx_id[1]]
+            self.channels[tx_rx_id] = Channel(tx, rx, action.mode, action.rb, action.tx_pwr_dBm)
 
     def _calculate_sinrs(self) -> Dict[Tuple[Id, Id], float]:
         sinrs_db = {}

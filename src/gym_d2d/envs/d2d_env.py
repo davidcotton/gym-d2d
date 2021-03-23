@@ -11,8 +11,7 @@ from gym_d2d.envs.obs_fn import LinearObsFunction
 from gym_d2d.envs.reward_fn import SystemCapacityRewardFunction
 from gym_d2d.id import Id
 from gym_d2d.link_type import LinkType
-from gym_d2d.simulator import Simulator
-
+from gym_d2d.simulator import Simulator, BASE_STATION_ID
 
 EPISODE_LENGTH = 10
 DEFAULT_OBS_FN = LinearObsFunction
@@ -51,14 +50,15 @@ class D2DEnv(gym.Env):
         obs = self.obs_fn.get_state(self.state, self.simulator.channels, self.simulator.devices)
         return obs
 
-    def _reset_random_actions(self) -> Dict[Id, Action]:
-        cue_actions = {_id: self._extract_action(_id, self.action_space['cue'].sample())
-                       for _id in self.simulator.devices.cues.keys()}
-        due_actions = {_id: self._extract_action(_id, self.action_space['due'].sample())
-                       for _id, _ in self.simulator.devices.dues.keys()}
+    def _reset_random_actions(self) -> Dict[Tuple[Id, Id], Action]:
+        cue_actions = {
+            (tx_id, BASE_STATION_ID): self._extract_action(tx_id, BASE_STATION_ID, self.action_space['cue'].sample())
+            for tx_id in self.simulator.devices.cues.keys()}
+        due_actions = {tx_rx_id: self._extract_action(*tx_rx_id, self.action_space['due'].sample())
+                       for tx_rx_id in self.simulator.devices.dues.keys()}
         return {**cue_actions, **due_actions}
 
-    def step(self, actions):
+    def step(self, actions: Dict[str, Any]):
         actions = self._extract_actions(actions)
         self.state = self.simulator.step(actions)
         self.num_steps += 1
@@ -69,20 +69,21 @@ class D2DEnv(gym.Env):
 
         return obs, rewards, game_over, info
 
-    def _extract_actions(self, actions: Dict[Id, object]) -> Dict[Id, Action]:
-        return {tx_id: self._extract_action(tx_id, action) for tx_id, action in actions.items()}
+    def _extract_actions(self, raw_actions: Dict[str, Any]) -> Dict[Tuple[Id, Id], Action]:
+        actions = {}
+        for id_pair_str, action in raw_actions.items():
+            tx_rx_id = tuple([Id(_id) for _id in id_pair_str.split(':')])
+            actions[tx_rx_id] = self._extract_action(*tx_rx_id, action)
+        return actions
 
-    def _extract_action(self, tx_id: Id, action) -> Action:
+    def _extract_action(self, tx_id: Id, rx_id: Id, action: Any) -> Action:
         if tx_id in self.simulator.devices.due_pairs:
-            rx_id = self.simulator.devices.due_pairs[tx_id]
             link_type = LinkType.SIDELINK
             rb, tx_pwr_dBm = self._decode_action(action, 'due')
         elif tx_id in self.simulator.devices.cues:
-            rx_id = self.simulator.devices.bs.id
             link_type = LinkType.UPLINK
             rb, tx_pwr_dBm = self._decode_action(action, 'cue')
         else:
-            rx_id = self.simulator.devices.cues[tx_id]
             link_type = LinkType.DOWNLINK
             rb, tx_pwr_dBm = self._decode_action(action, 'mbs')
         return Action(tx_id, rx_id, link_type, rb, tx_pwr_dBm)
@@ -97,17 +98,17 @@ class D2DEnv(gym.Env):
             raise ValueError(f'Unable to decode action type "{type(action)}"')
         return int(rb), int(tx_pwr_dBm)
 
-    def _info(self, actions: Dict[Id, Action], state: dict):
+    def _info(self, actions: Dict[Tuple[Id, Id], Action], state: dict) -> Dict[str, Any]:
         return {
-            tx_id: {
-                'rb': actions[tx_id].rb,
-                'tx_pwr_dbm': actions[tx_id].tx_pwr_dBm,
-                # 'channel_gains_db': state['channel_gains_db'][(tx_id, rx_id)],
-                'snr_db': state['snrs_db'][(tx_id, rx_id)],
-                'sinr_db': sinr_db,
-                'rate_bps': state['rate_bps'][(tx_id, rx_id)],
-                'capacity_mbps': state['capacity_mbps'][(tx_id, rx_id)],
-            } for (tx_id, rx_id), sinr_db in state['sinrs_db'].items()}
+            ':'.join(tx_rx_id): {
+                'rb': action.rb,
+                'tx_pwr_dbm': action.tx_pwr_dBm,
+                # 'channel_gains_db': state['channel_gains_db'][tx_rx_id],
+                'snr_db': state['snrs_db'][tx_rx_id],
+                'sinr_db': state['sinrs_db'][tx_rx_id],
+                'rate_bps': state['rate_bps'][tx_rx_id],
+                'capacity_mbps': state['capacity_mbps'][tx_rx_id],
+            } for tx_rx_id, action in actions.items()}
 
     def render(self, mode='human'):
         assert self.state is not None, 'Initialise environment with `reset()` before calling `render()`'
