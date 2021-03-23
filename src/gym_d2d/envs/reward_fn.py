@@ -24,22 +24,27 @@ class RewardFunction(ABC):
 
 
 class SystemCapacityRewardFunction(RewardFunction):
+    def __init__(self, min_capacity_mbps=0.0) -> None:
+        super().__init__()
+        self.min_capacity_mbps: float = min_capacity_mbps
+
     def __call__(self, actions: Actions, state: dict, channels: Channels, devices: Devices) -> Dict[str, float]:
-        reward = -1
-        for tx_id, rx_id in devices.due_pairs.items():
-            channel = channels[(tx_id, rx_id)]
+        reward = -1.0
+        for tx_rx_id, action in actions.items():
+            if action.mode != LinkType.SIDELINK:
+                continue
+            channel = channels[tx_rx_id]
             ix_channels = channels.get_channels_by_rb(channel.rb).difference({channel})
             for ix_channel in ix_channels:
-                if ix_channel.tx.id in devices.due_pairs:
+                if ix_channel.link_type == LinkType.SIDELINK:
                     continue
-                if state['capacity_mbps'][(ix_channel.tx.id, ix_channel.rx.id)] <= 0:
+                if state['capacity_mbps'][(ix_channel.tx.id, ix_channel.rx.id)] <= self.min_capacity_mbps:
                     break
             else:
                 continue
             break
         else:
-            sum_capacity = sum(state['capacity_mbps'].values())
-            reward = sum_capacity / len(devices.due_pairs)
+            reward = sum(state['capacity_mbps'].values()) / len(actions)
 
         return {':'.join(tx_rx_id): reward for tx_rx_id in actions.keys()}
 
