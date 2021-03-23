@@ -34,7 +34,7 @@ class SystemCapacityRewardFunction(RewardFunction):
             sum_capacity = sum(state['capacity_mbps'].values())
             reward = sum_capacity / len(devices.due_pairs)
 
-        return {tx_id: reward for tx_id in devices.due_pairs.keys()}
+        return {tx_id: reward for tx_id, _ in channels.keys()}
 
 
 class DueShannonRewardFunction(RewardFunction):
