@@ -26,18 +26,16 @@ def test_get_channels_by_rb(channels):
     # ensure Channels can group channels by RB
     assert channels.get_channels_by_rb(0) == {channels[('due00', 'due01')], channels[('cue', 'bs')]}
     assert channels.get_channels_by_rb(1) == {channels[('due02', 'due03')]}
-    # ensure KeyError is raised if RB not present
-    with pytest.raises(KeyError):
-        assert channels.get_channels_by_rb(2)
+    assert channels.get_channels_by_rb(2) == set()
 
 
 def test_clear(channels):
     # ensure clearing, also clears dict of RBs
     channels.clear()
     assert channels == {}
-    with pytest.raises(KeyError):
-        assert channels.get_channels_by_rb(0)
-        assert channels.get_channels_by_rb(1)
+    assert channels.get_channels_by_rb(0) == set()
+    assert channels.get_channels_by_rb(1) == set()
+    assert channels.get_channels_by_rb(2) == set()
 
 
 def test_get_channels_by_rb_after_clear(channels):
@@ -47,5 +45,5 @@ def test_get_channels_by_rb_after_clear(channels):
     test_channel = Channel(UserEquipment('due00'), UserEquipment('due01'), LinkType.SIDELINK, 0, 17)
     channels[('due00', 'due01')] = test_channel
     assert channels.get_channels_by_rb(0) == {test_channel}
-    with pytest.raises(KeyError):
-        assert channels.get_channels_by_rb(1)
+    assert channels.get_channels_by_rb(1) == set()
+    assert channels.get_channels_by_rb(2) == set()
