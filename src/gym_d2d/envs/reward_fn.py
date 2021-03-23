@@ -31,12 +31,11 @@ class SystemCapacityRewardFunction(RewardFunction):
         for tx_rx_id, action in actions.items():
             if action.link_type != LinkType.SIDELINK:
                 continue
-            channel = channels[tx_rx_id]
-            ix_channels = channels.get_channels_by_rb(channel.rb).difference({channel})
-            for ix_channel in ix_channels:
-                if ix_channel.link_type == LinkType.SIDELINK:
+            ix_actions = actions.get_actions_by_rb(action.rb).difference({action})
+            for ix_action in ix_actions:
+                if ix_action.link_type == LinkType.SIDELINK:
                     continue
-                if state['capacity_mbps'][(ix_channel.tx.id, ix_channel.rx.id)] <= self.min_capacity_mbps:
+                if state['capacity_mbps'][(ix_action.tx.id, ix_action.rx.id)] <= self.min_capacity_mbps:
                     break
             else:
                 continue
