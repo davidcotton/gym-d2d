@@ -2,8 +2,6 @@ from math import log2
 from typing import Dict, Tuple
 
 from .actions import Actions
-from .channel import Channel
-from .channels import Channels
 from .conversion import dB_to_linear, linear_to_dB
 from .device import BaseStation, UserEquipment
 from .devices import Devices
@@ -63,7 +61,6 @@ class Simulator:
         super().__init__()
         self.config = EnvConfig(**env_config)
         self.devices: Devices = create_devices(self.config)
-        self.channels = Channels()
         self.traffic_model: TrafficModel = self.config.traffic_model(self.config.num_rbs)
         self.path_loss: PathLoss = self.config.path_loss_model(self.config.carrier_freq_GHz)
 
@@ -82,39 +79,30 @@ class Simulator:
             else:
                 raise ValueError(f'Invalid configuration for device "{device.id}".')
             device.set_position(pos)
-        self.channels.clear()
 
     def step(self, actions: Actions) -> dict:
-        self._generate_traffic(actions)
-        sinrs_db = self._calculate_sinrs()
+        # self.channels = self.traffic_model.get_traffic(self.devices)
+        sinrs_db = self._calculate_sinrs(actions)
         capacities = self._calculate_network_capacity(sinrs_db)
 
         return {
             'sinrs_db': sinrs_db,
-            'snrs_db': self._calculate_snrs(),
+            'snrs_db': self._calculate_snrs(actions),
             'rate_bps': self._calculate_rates(sinrs_db),
             'capacity_mbps': capacities,
         }
 
-    def _generate_traffic(self, actions: Actions) -> None:
-        # automated traffic
-        # self.channels = self.traffic_model.get_traffic(self.devices)
-        # supplied actions
-        for tx_rx_id, action in actions.items():
-            tx, rx = self.devices[tx_rx_id[0]], self.devices[tx_rx_id[1]]
-            self.channels[tx_rx_id] = Channel(tx, rx, action.link_type, action.rb, action.tx_pwr_dBm)
-
-    def _calculate_sinrs(self) -> Dict[Tuple[Id, Id], float]:
+    def _calculate_sinrs(self, actions: Actions) -> Dict[Tuple[Id, Id], float]:
         sinrs_db = {}
-        for (tx_id, rx_id), channel in self.channels.items():
-            tx, rx = channel.tx, channel.rx
-            rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(channel.tx_pwr_dBm), self.path_loss(tx, rx))
+        for (tx_id, rx_id), action in actions.items():
+            tx, rx = action.tx, action.rx
+            rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(action.tx_pwr_dBm), self.path_loss(tx, rx))
 
-            ix_channels = self.channels.get_channels_by_rb(channel.rb).difference({channel})
+            ix_actions = actions.get_actions_by_rb(action.rb).difference({action})
             sum_ix_pwr_mW = 0.0
-            for ix_channel in ix_channels:
-                ix_tx = ix_channel.tx
-                ix_eirp_dBm = ix_tx.eirp_dBm(ix_channel.tx_pwr_dBm)
+            for ix_action in ix_actions:
+                ix_tx = ix_action.tx
+                ix_eirp_dBm = ix_tx.eirp_dBm(ix_action.tx_pwr_dBm)
                 ix_path_loss_dB = self.path_loss(ix_tx, rx)
                 sum_ix_pwr_mW += dB_to_linear(ix_eirp_dBm - ix_path_loss_dB)
 
@@ -125,11 +113,11 @@ class Simulator:
                 float(rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm)))
         return sinrs_db
 
-    def _calculate_snrs(self) -> Dict[Tuple[Id, Id], float]:
+    def _calculate_snrs(self, actions: Actions) -> Dict[Tuple[Id, Id], float]:
         SNRs_dB = {}
-        for ids, channel in self.channels.items():
-            tx, rx = channel.tx, channel.rx
-            rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(channel.tx_pwr_dBm), self.path_loss(tx, rx))
+        for ids, action in actions.items():
+            tx, rx = action.tx, action.rx
+            rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(action.tx_pwr_dBm), self.path_loss(tx, rx))
             SNRs_dB[ids] = float(rx_pwr_dBm - rx.thermal_noise_dBm)
         return SNRs_dB
 
