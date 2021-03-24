@@ -1,10 +1,14 @@
+from collections import defaultdict
 from math import log2
 from typing import Dict, Tuple
+
+from gym_d2d.link_type import LinkType
+from gym_d2d.utils import SurjectiveDict, BidirectionalDict
 
 from .actions import Actions
 from .conversion import dB_to_linear, linear_to_dB
 from .device import BaseStation, UserEquipment
-from .devices import Devices
+from .devices import Devices, DeviceMap
 from .envs.env_config import EnvConfig
 from .id import Id
 from .path_loss import PathLoss
@@ -41,6 +45,7 @@ def create_devices(config: EnvConfig) -> Devices:
 
     # create D2D UE pairs
     dues = {}
+    dues2 = {}
     due_cfg = {**base_cfg, **{'max_tx_power_dBm': config.due_max_tx_power_dBm}}
     for i in range(0, (config.num_due_pairs * 2), 2):
         due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
@@ -52,8 +57,11 @@ def create_devices(config: EnvConfig) -> Devices:
         due_rx = UserEquipment(due_rx_id, due_rx_cfg)
 
         dues[(due_tx.id, due_rx.id)] = due_tx, due_rx
+        dues2[due_tx.id] = due_tx
+        dues2[due_rx.id] = due_rx
 
-    return Devices(bs, cues, dues)
+    # return Devices(bs, cues, dues)
+    return Devices(**{bs.id: bs, **cues, **dues2})
 
 
 class Simulator:
@@ -61,21 +69,40 @@ class Simulator:
         super().__init__()
         self.config = EnvConfig(**env_config)
         self.devices: Devices = create_devices(self.config)
+        device_map = self.config.device_map
+        # self.device_map = DeviceMap(device_map)
+        # self.device_map = DeviceMap()
+        # self.device_map = SurjectiveDict()
+        self.txs = defaultdict(list)
+        self.rxs = defaultdict(list)
+        self.linktype_map = BidirectionalDict()
+        for tx_id, rx_id, linktype in device_map:
+            # self.device_map[tx_id] = rx_id
+            self.txs[tx_id].append(rx_id)
+            self.rxs[rx_id].append(tx_id)
+            self.linktype_map[(tx_id, rx_id)] = linktype
         self.traffic_model: TrafficModel = self.config.traffic_model(self.config.num_rbs)
         self.path_loss: PathLoss = self.config.path_loss_model(self.config.carrier_freq_GHz)
 
     def reset(self) -> None:
+        self._reposition_devices()
+
+    def _reposition_devices(self) -> None:
         for device in self.devices.values():
             if device.id == BASE_STATION_ID:
                 pos = Position(0, 0)  # assume MBS fixed at (0,0) and everything else builds around it
             elif device.id in self.config.devices:
                 pos = Position(*self.config.devices[device.id]['position'])
-            elif any(device.id in d for d in [self.devices.cues, self.devices.due_pairs]):
+            elif device.id in self.txs:
                 pos = get_random_position(self.config.cell_radius_m)
-            elif device.id in self.devices.due_pairs_inv:
-                due_tx_id = self.devices.due_pairs_inv[device.id]
-                due_tx = self.devices[due_tx_id]
-                pos = get_random_position_nearby(self.config.cell_radius_m, due_tx.position, self.config.d2d_radius_m)
+            elif device.id in self.rxs:
+                tx_ids = self.rxs[device.id]
+                tx_id = tx_ids[0]  # @todo need to fix this
+                if self.linktype_map[(tx_id, device.id)] == LinkType.SIDELINK:
+                    tx_pos = self.devices[tx_id].position
+                    pos = get_random_position_nearby(self.config.cell_radius_m, tx_pos, self.config.d2d_radius_m)
+                else:
+                    pos = get_random_position(self.config.cell_radius_m)
             else:
                 raise ValueError(f'Invalid configuration for device "{device.id}".')
             device.set_position(pos)

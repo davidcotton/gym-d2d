@@ -1,3 +1,6 @@
+from collections import UserDict
+
+
 def merge_dicts(original: dict, other: dict) -> dict:
     """Merge two dicts (in place), overwriting values in original.
 
@@ -47,3 +50,63 @@ def plot_devices(env, out_file: str = ''):
     if out_file:
         plt.savefig(out_file)
     plt.show()
+
+
+class BijectiveDict(UserDict):
+    def __setitem__(self, key, value):
+        if key in self:
+            del self[self[key]]
+        if value in self:
+            del self[value]
+        super().__setitem__(key, value)
+        super().__setitem__(value, key)
+
+    def __delitem__(self, key):
+        value = self[key]
+        super().__delitem__(key)
+        self.pop(value, None)
+
+
+class BidirectionalDict(dict):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.inverse = {}
+        for key, value in self.items():
+            self.inverse.setdefault(value, []).append(key)
+
+    def __setitem__(self, key, value):
+        if key in self:
+            self.inverse[self[key]].remove(key)
+        super().__setitem__(key, value)
+        self.inverse.setdefault(value, []).append(key)
+
+    def __delitem__(self, key):
+        self.inverse.setdefault(self[key], []).remove(key)
+        if self[key] in self.inverse and not self.inverse[self[key]]:
+            del self.inverse[self[key]]
+        super().__delitem__(key)
+
+
+class SurjectiveDict(dict):
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.inverse = {}
+        for key, value in self.items():
+            self.inverse.setdefault(value, []).append(key)
+
+    def __setitem__(self, key, value):
+        if key not in self:
+            super().__setitem__(key, [value])
+        else:
+            self[key].append(value)
+        self.inverse.setdefault(value, []).append(key)
+        foo = 1
+
+    def get_tx(self, key):
+        return self[key]
+
+    def get_rx(self, key):
+        return self.inverse[key]
+
+    def __delitem__(self, key):
+        raise NotImplementedError
