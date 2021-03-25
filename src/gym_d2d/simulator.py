@@ -26,31 +26,25 @@ def create_devices(config: EnvConfig) -> Devices:
         'num_subcarriers': config.num_subcarriers,
         'subcarrier_spacing_kHz': config.subcarrier_spacing_kHz,
     }
+    default_cue_cfg = {**base_cfg, **{'max_tx_power_dBm': config.cue_max_tx_power_dBm}}
+    default_due_cfg = {**base_cfg, **{'max_tx_power_dBm': config.due_max_tx_power_dBm}}
+    get_config = lambda id_, default_cfg: config.devices.get(id_, {}).get('config', default_cfg)
 
     # create macro base station
-    cfg = config.devices[BASE_STATION_ID]['config'] if BASE_STATION_ID in config.devices else base_cfg
-    bs = BaseStation(Id(BASE_STATION_ID), cfg)
+    bs = BaseStation(Id(BASE_STATION_ID), get_config(BASE_STATION_ID, base_cfg))
 
     # create cellular UEs
     cues = {}
-    default_cue_cfg = {**base_cfg, **{'max_tx_power_dBm': config.cue_max_tx_power_dBm}}
     for i in range(config.num_cues):
         cue_id = Id(f'cue{i:02d}')
-        cfg = config.devices[cue_id]['config'] if cue_id in config.devices else default_cue_cfg
-        cues[cue_id] = UserEquipment(cue_id, cfg)
+        cues[cue_id] = UserEquipment(cue_id, get_config(cue_id, default_cue_cfg))
 
     # create D2D UE pairs
     dues = {}
-    due_cfg = {**base_cfg, **{'max_tx_power_dBm': config.due_max_tx_power_dBm}}
     for i in range(0, (config.num_due_pairs * 2), 2):
         due_tx_id, due_rx_id = Id(f'due{i:02d}'), Id(f'due{i + 1:02d}')
-
-        due_tx_cfg = config.devices[due_tx_id]['config'] if due_tx_id in config.devices else due_cfg
-        due_tx = UserEquipment(due_tx_id, due_tx_cfg)
-
-        due_rx_cfg = config.devices[due_rx_id]['config'] if due_rx_id in config.devices else due_cfg
-        due_rx = UserEquipment(due_rx_id, due_rx_cfg)
-
+        due_tx = UserEquipment(due_tx_id, get_config(due_tx_id, default_due_cfg))
+        due_rx = UserEquipment(due_rx_id, get_config(due_rx_id, default_due_cfg))
         dues[(due_tx.id, due_rx.id)] = due_tx, due_rx
 
     return Devices(bs, cues, dues)
