@@ -66,7 +66,7 @@ class D2DEnv(gym.Env):
         obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices)
         rewards = self.reward_fn(self.actions, self.state)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
-        info = self._info(self.actions, self.state)
+        info = self._infos(self.actions, self.state)
 
         return obs, rewards, game_over, info
 
@@ -100,17 +100,20 @@ class D2DEnv(gym.Env):
             raise ValueError(f'Unable to decode action type "{type(action)}"')
         return int(rb), int(tx_pwr_dBm)
 
-    def _info(self, actions: Actions, state: dict) -> Dict[str, Any]:
+    def _infos(self, actions: Actions, state: dict) -> Dict[str, Any]:
+        return {':'.join(id_pair): self._info(action, state) for id_pair, action in actions.items()}
+
+    def _info(self, action: Action, state: dict) -> Dict[str, Any]:
+        id_pair = (action.tx.id, action.rx.id)
         return {
-            ':'.join(tx_rx_id): {
-                'rb': action.rb,
-                'tx_pwr_dbm': action.tx_pwr_dBm,
-                # 'channel_gains_db': state['channel_gains_db'][tx_rx_id],
-                'snr_db': state['snrs_db'][tx_rx_id],
-                'sinr_db': state['sinrs_db'][tx_rx_id],
-                'rate_bps': state['rate_bps'][tx_rx_id],
-                'capacity_mbps': state['capacity_mbps'][tx_rx_id],
-            } for tx_rx_id, action in actions.items()}
+            'rb': action.rb,
+            'tx_pwr_dbm': action.tx_pwr_dBm,
+            # 'channel_gains_db': state['channel_gains_db'][id_pair],
+            'snr_db': state['snrs_db'][id_pair],
+            'sinr_db': state['sinrs_db'][id_pair],
+            'rate_bps': state['rate_bps'][id_pair],
+            'capacity_mbps': state['capacity_mbps'][id_pair],
+        }
 
     def render(self, mode='human'):
         assert self.state is not None and self.actions is not None, \
