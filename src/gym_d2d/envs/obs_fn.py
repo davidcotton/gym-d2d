@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, List, Tuple
 
 from gym import Space, spaces
 import numpy as np
@@ -7,6 +7,7 @@ import numpy as np
 from gym_d2d.actions import Actions
 from gym_d2d.devices import Devices
 from gym_d2d.envs.env_config import EnvConfig
+from gym_d2d.id import Id
 
 
 class ObsFunction(ABC):
@@ -40,12 +41,7 @@ class LinearObsFunction(ObsFunction):
         return spaces.Box(low=-r, high=r, shape=obs_shape)
 
     def get_state(self, actions: Actions, state: dict, devices: Devices) -> Dict[str, np.array]:
-        agent_obs = {}
-        for tx_rx_id, action in actions.items():
-            agent_obs[tx_rx_id] = list(action.tx.position.as_tuple() + action.rx.position.as_tuple())
-            agent_obs[tx_rx_id].append(state['sinrs_db'][tx_rx_id])
-            agent_obs[tx_rx_id].append(state['snrs_db'][tx_rx_id])
-
+        agent_obs = self._agent_obs(actions, state)
         obses = {}
         for tx_rx_id in agent_obs:
             tx_obs_copy = agent_obs[tx_rx_id][:]
@@ -55,3 +51,11 @@ class LinearObsFunction(ObsFunction):
             obses[':'.join(tx_rx_id)] = np.array(tx_obs_copy)
 
         return obses
+
+    def _agent_obs(self, actions: Actions, state: dict) -> Dict[Tuple[Id, Id], List[float]]:
+        agent_obs = {}
+        for tx_rx_id, action in actions.items():
+            agent_obs[tx_rx_id] = list(action.tx.position.as_tuple() + action.rx.position.as_tuple())
+            agent_obs[tx_rx_id].append(state['sinrs_db'][tx_rx_id])
+            agent_obs[tx_rx_id].append(state['snrs_db'][tx_rx_id])
+        return agent_obs
