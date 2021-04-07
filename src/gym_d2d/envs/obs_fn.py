@@ -21,7 +21,7 @@ class ObsFunction(ABC):
         pass
 
     @abstractmethod
-    def get_state(self, actions: Actions, state: dict, devices: Devices, device_map) -> Dict[str, np.array]:
+    def get_state(self, actions: Actions, state: dict, devices: Devices, txs, linktype_map) -> Dict[str, np.array]:
         """Calculate the next observations for each agent.
 
         :param actions: Dict of previous actions (empty 1st step).
@@ -41,7 +41,7 @@ class LinearObsFunction(ObsFunction):
         obs_shape = (self.num_obs * num_txs,)
         return spaces.Box(low=-r, high=r, shape=obs_shape)
 
-    def get_state(self, actions: Actions, state: dict, devices: Devices, device_map) -> Dict[str, np.array]:
+    def get_state(self, actions: Actions, state: dict, devices: Devices, txs, linktype_map) -> Dict[str, np.array]:
         agent_obs = defaultdict(lambda: [0.0] * self.num_obs)
         for id_pair, action in actions.items():
             agent_obs[id_pair] = list(action.tx.position.as_tuple() + action.rx.position.as_tuple())
@@ -49,11 +49,11 @@ class LinearObsFunction(ObsFunction):
             agent_obs[id_pair].append(state['snrs_db'][id_pair])
 
         obses = {}
-        for tx_id, rx_ids in device_map.items():
+        for tx_id, rx_ids in txs.items():
             for rx_id in rx_ids:
                 id_pair = (tx_id, rx_id)
                 tx_obs_copy = agent_obs[id_pair][:]
-                for other_tx_id, other_rx_ids in device_map.items():
+                for other_tx_id, other_rx_ids in txs.items():
                     for other_rx_id in other_rx_ids:
                         other_id_pair = (other_tx_id, other_rx_id)
                         if other_id_pair != id_pair:
