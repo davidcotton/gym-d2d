@@ -66,6 +66,8 @@ class Simulator:
             self.linktype_map[(tx_id, rx_id)] = linktype
         self.traffic_model: TrafficModel = self.config.traffic_model(self.config.num_rbs)
         self.path_loss: PathLoss = self.config.path_loss_model(self.config.carrier_freq_GHz)
+        self.default_sinr = -100.0
+        self.default_snr = -100.0
 
     def reset(self) -> None:
         self._reposition_devices()
@@ -104,31 +106,43 @@ class Simulator:
 
     def _calculate_sinrs(self, actions: Actions) -> Dict[Tuple[Id, Id], float]:
         sinrs_db = {}
-        for (tx_id, rx_id), action in actions.items():
-            tx, rx = action.tx, action.rx
-            rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(action.tx_pwr_dBm), self.path_loss(tx, rx))
+        for id_pair in self.linktype_map.keys():
+            if id_pair in actions:
+                action = actions[id_pair]
+                tx, rx = action.tx, action.rx
+                rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(action.tx_pwr_dBm), self.path_loss(tx, rx))
 
-            ix_actions = actions.get_actions_by_rb(action.rb).difference({action})
-            sum_ix_pwr_mW = 0.0
-            for ix_action in ix_actions:
-                ix_tx = ix_action.tx
-                ix_eirp_dBm = ix_tx.eirp_dBm(ix_action.tx_pwr_dBm)
-                ix_path_loss_dB = self.path_loss(ix_tx, rx)
-                sum_ix_pwr_mW += dB_to_linear(ix_eirp_dBm - ix_path_loss_dB)
+                ix_actions = actions.get_actions_by_rb(action.rb).difference({action})
+                sum_ix_pwr_mW = 0.0
+                for ix_action in ix_actions:
+                    ix_tx = ix_action.tx
+                    ix_eirp_dBm = ix_tx.eirp_dBm(ix_action.tx_pwr_dBm)
+                    ix_path_loss_dB = self.path_loss(ix_tx, rx)
+                    sum_ix_pwr_mW += dB_to_linear(ix_eirp_dBm - ix_path_loss_dB)
 
-            # noise_mW = dB_to_linear(rx.thermal_noise_dBm)  # @todo this can be memoized
-            # ix_and_noise_mW = sum_ix_pwr_mW + noise_mW
-            # sinrs_db[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(ix_and_noise_mW)
-            sinrs_db[(tx_id, rx_id)] = \
-                float(rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm)))
+                # noise_mW = dB_to_linear(rx.thermal_noise_dBm)  # @todo this can be memoized
+                # ix_and_noise_mW = sum_ix_pwr_mW + noise_mW
+                # sinrs_db[(tx_id, rx_id)] = rx_pwr_dBm - linear_to_dB(ix_and_noise_mW)
+                # sinrs_db[(tx_id, rx_id)] = \
+                #     float(rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm)))
+                sinr = float(rx_pwr_dBm - linear_to_dB(sum_ix_pwr_mW + dB_to_linear(rx.thermal_noise_dBm)))
+            else:
+                sinr = self.default_sinr
+            sinrs_db[id_pair] = sinr
         return sinrs_db
 
     def _calculate_snrs(self, actions: Actions) -> Dict[Tuple[Id, Id], float]:
         SNRs_dB = {}
-        for ids, action in actions.items():
-            tx, rx = action.tx, action.rx
-            rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(action.tx_pwr_dBm), self.path_loss(tx, rx))
-            SNRs_dB[ids] = float(rx_pwr_dBm - rx.thermal_noise_dBm)
+        for id_pair in self.linktype_map.keys():
+            if id_pair in actions:
+                action = actions[id_pair]
+                tx, rx = action.tx, action.rx
+                rx_pwr_dBm = rx.rx_signal_level_dBm(tx.eirp_dBm(action.tx_pwr_dBm), self.path_loss(tx, rx))
+                snr = float(rx_pwr_dBm - rx.thermal_noise_dBm)
+            else:
+                snr = self.default_snr
+            SNRs_dB[id_pair] = snr
+
         return SNRs_dB
 
     def _calculate_rates(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
