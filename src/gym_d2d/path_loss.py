@@ -12,7 +12,7 @@ SPEED_OF_LIGHT = 299792458  # m/s
 class PathLoss(ABC):
     def __init__(self, carrier_freq_GHz: float) -> None:
         super().__init__()
-        self.carrier_freq_GHz: float = carrier_freq_GHz
+        self.carrier_freq_GHz = float(carrier_freq_GHz)
 
     @abstractmethod
     def __call__(self, tx: Device, rx: Device) -> float:
@@ -40,9 +40,9 @@ def pl_constant_dB(carrier_freq_GHz: float, ple: float) -> float:
 
 
 class LogDistancePathLoss(PathLoss):
-    def __init__(self, carrier_freq_GHz: float, ple: float = 2.0) -> None:
+    def __init__(self, carrier_freq_GHz: float, ple=2.0) -> None:
         super().__init__(carrier_freq_GHz)
-        self.ple: float = ple  # path loss exponent (2.0 in free space, 3.5 in crowded env)
+        self.ple = float(ple)  # path loss exponent (2.0 in free space, 3.5 in crowded env)
         self.pl_constant_dB = pl_constant_dB(carrier_freq_GHz, ple)
 
     def __call__(self, tx: Device, rx: Device) -> float:
@@ -67,10 +67,10 @@ class LogDistancePathLoss(PathLoss):
 
 
 class ShadowingPathLoss(LogDistancePathLoss):
-    def __init__(self, carrier_freq_GHz: float, ple: float = 2.0, d0_m: float = 100.0, chi_dB: float = 2.7) -> None:
+    def __init__(self, carrier_freq_GHz: float, ple=2.0, d0_m=1.0, chi_dB=2.7) -> None:
         super().__init__(carrier_freq_GHz, ple)
-        self.d0_m: float = d0_m  # shadowing close-in reference distance (metres)
-        self.chi_dB: float = chi_dB  # shadowing standard deviation (dB), typically 2.7 to 3.5
+        self.d0_m = float(d0_m)  # shadowing close-in reference distance (metres)
+        self.chi_dB = float(chi_dB)  # shadowing standard deviation (dB), typically 2.7 to 3.5
 
     def __call__(self, tx: Device, rx: Device) -> float:
         d = tx.position.distance(rx.position)
@@ -86,7 +86,7 @@ class AreaType(Enum):
 
 
 class CostHataPathLoss(PathLoss):
-    def __init__(self, carrier_freq_GHz: float, area_type: AreaType = AreaType.SUBURBAN) -> None:
+    def __init__(self, carrier_freq_GHz: float, area_type=AreaType.SUBURBAN) -> None:
         super().__init__(carrier_freq_GHz)
         self.area_type: AreaType = area_type
 
