@@ -89,7 +89,7 @@ class D2DEnv(gym.Env):
         if isinstance(action, (int, np.integer)):
             rb = action // self.num_pwr_actions[tx_type]
             tx_pwr_dBm = action % self.num_pwr_actions[tx_type]
-        elif isinstance(action, np.ndarray) and action.ndim == 2:
+        elif isinstance(action, np.ndarray):
             rb, tx_pwr_dBm = action
         else:
             raise ValueError(f'Unable to decode action type "{type(action)}"')
