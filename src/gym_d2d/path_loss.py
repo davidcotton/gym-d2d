@@ -74,9 +74,11 @@ class ShadowingPathLoss(LogDistancePathLoss):
 
     def __call__(self, tx: Device, rx: Device) -> float:
         d = tx.position.distance(rx.position)
-        assert self.d0_m < d
-        ldpl = self._log_distance_path_loss(self.d0_m)
-        return ldpl + 10 * self.ple * log10(d / self.d0_m) + gauss(0, self.chi_dB)
+        if d > self.d0_m:
+            ldpl = self._log_distance_path_loss(self.d0_m)
+            return ldpl + 10 * self.ple * log10(d / self.d0_m) + gauss(0, self.chi_dB)
+        else:
+            return self._log_distance_path_loss(d)
 
 
 class AreaType(Enum):
