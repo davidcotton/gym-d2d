@@ -65,7 +65,7 @@ class Simulator:
             self.rxs[rx_id].append(tx_id)
             self.linktype_map[(tx_id, rx_id)] = linktype
         self.traffic_model: TrafficModel = self.config.traffic_model(self.config.num_rbs)
-        self.path_loss: PathLoss = self.config.path_loss_model(self.config.carrier_freq_GHz)
+        self.path_loss: PathLoss = self.config.path_loss_model(self.config.carrier_freq_GHz, self.config.ple)
         self.default_sinr = -100.0
         self.default_snr = -100.0
 

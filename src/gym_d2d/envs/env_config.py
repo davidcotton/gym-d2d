@@ -20,6 +20,7 @@ class EnvConfig:
     mbs_max_tx_power_dBm: int = 46
     path_loss_model: Type[PathLoss] = LogDistancePathLoss
     traffic_model: Type[TrafficModel] = UplinkTrafficModel
+    ple: float = 2.0
     carrier_freq_GHz: float = 2.1
     num_subcarriers: int = 12
     subcarrier_spacing_kHz: int = 15
