@@ -39,7 +39,11 @@ class LinearObsFunction(ObsFunction):
         num_txs = env_config.num_cues + env_config.num_due_pairs
         self.num_obs = 6  # tx_x, tx_y, rx_x, rx_y, sinr, snr
         obs_shape = (self.num_obs * num_txs,)
-        return spaces.Box(low=-r, high=r, shape=obs_shape)
+        return spaces.Dict({
+            "due": spaces.Box(low=-r, high=r, shape=obs_shape),
+            "cue": spaces.Box(low=-r, high=r, shape=obs_shape),
+            "mbs": spaces.Box(low=-r, high=r, shape=obs_shape),
+        })
 
     def get_state(self, actions: Actions, state: dict, devices: Devices, txs, linktype_map) -> Dict[str, np.array]:
         agent_obs = defaultdict(lambda: [0.0] * self.num_obs)
