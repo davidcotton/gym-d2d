@@ -47,9 +47,6 @@ class D2DEnv(gym.Env):
         self.simulator.reset()
         self.actions.clear()
         self.state = self.simulator.step(self.actions)
-        # obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices, self.simulator.config.device_mapping_fn)
-        # obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices, self.simulator.config.device_map)
-        # obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices, self.simulator.txs)
         obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices, self.simulator.txs, self.simulator.linktype_map)
         return obs
 
@@ -57,9 +54,6 @@ class D2DEnv(gym.Env):
         self.actions = self._extract_actions(raw_actions)
         self.state = self.simulator.step(self.actions)
         self.num_steps += 1
-        # obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices, self.simulator.config.device_mapping_fn)
-        # obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices, self.simulator.config.device_map)
-        # obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices, self.simulator.txs)
         obs = self.obs_fn.get_state(self.actions, self.state, self.simulator.devices, self.simulator.txs, self.simulator.linktype_map)
         rewards = self.reward_fn(self.actions, self.state)
         game_over = {'__all__': self.num_steps >= EPISODE_LENGTH}
