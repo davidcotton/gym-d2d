@@ -94,17 +94,16 @@ class Simulator:
 
     def step(self, actions: Actions) -> dict:
         # self.channels = self.traffic_model.get_traffic(self.devices)
-        sinrs_db = self._calculate_sinrs(actions)
-        capacities = self._calculate_network_capacity(sinrs_db)
+        sinrs_db = self._sinrs(actions)
 
         return {
             'sinrs_db': sinrs_db,
-            'snrs_db': self._calculate_snrs(actions),
-            'rate_bps': self._calculate_rates(sinrs_db),
-            'capacity_mbps': capacities,
+            'snrs_db': self._snrs(actions),
+            'rate_bps': self._rates(sinrs_db),
+            'capacity_mbps': self._capacity(sinrs_db),
         }
 
-    def _calculate_sinrs(self, actions: Actions) -> Dict[Tuple[Id, Id], float]:
+    def _sinrs(self, actions: Actions) -> Dict[Tuple[Id, Id], float]:
         sinrs_db = {}
         for id_pair in self.linktype_map.keys():
             if id_pair in actions:
@@ -131,7 +130,7 @@ class Simulator:
             sinrs_db[id_pair] = sinr
         return sinrs_db
 
-    def _calculate_snrs(self, actions: Actions) -> Dict[Tuple[Id, Id], float]:
+    def _snrs(self, actions: Actions) -> Dict[Tuple[Id, Id], float]:
         SNRs_dB = {}
         for id_pair in self.linktype_map.keys():
             if id_pair in actions:
@@ -145,7 +144,7 @@ class Simulator:
 
         return SNRs_dB
 
-    def _calculate_rates(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
+    def _rates(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         rates_bps = {}
         for (tx_id, rx_id), sinr_db in sinrs_db.items():
             _, rx = self.devices[tx_id], self.devices[rx_id]
@@ -156,7 +155,7 @@ class Simulator:
                 rates_bps[(tx_id, rx_id)] = 0.0
         return rates_bps
 
-    def _calculate_throughput_lte(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
+    def _throughput_lte(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         capacities = {}
         num_rbs = 100  # 100RBs @ 20MHz channel bandwidth
         num_re = 12 * 7 * 2  # num_subcarriers * num_symbols (short CP) * num_slots/subframe
@@ -171,7 +170,7 @@ class Simulator:
                 capacities[(tx_id, rx_id)] = 0
         return capacities
 
-    def _calculate_network_capacity(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
+    def _capacity(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         capacities_mbps = {}
         for (tx_id, rx_id), sinr_db in sinrs_db.items():
             tx, rx = self.devices[tx_id], self.devices[rx_id]
