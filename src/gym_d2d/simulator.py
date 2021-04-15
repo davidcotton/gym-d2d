@@ -146,13 +146,12 @@ class Simulator:
 
     def _rates(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         rates_bps = {}
-        for (tx_id, rx_id), sinr_db in sinrs_db.items():
-            _, rx = self.devices[tx_id], self.devices[rx_id]
+        for id_pair, sinr_db in sinrs_db.items():
             # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
-            if sinr_db > rx.rx_sensitivity_dBm:
-                rates_bps[(tx_id, rx_id)] = float(log2(1 + dB_to_linear(sinr_db)))
+            if sinr_db != self.default_sinr and sinr_db > self.devices[id_pair[1]].rx_sensitivity_dBm:
+                rates_bps[id_pair] = float(log2(1 + dB_to_linear(sinr_db)))
             else:
-                rates_bps[(tx_id, rx_id)] = 0.0
+                rates_bps[id_pair] = 0.0
         return rates_bps
 
     def _throughput_lte(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
@@ -172,12 +171,12 @@ class Simulator:
 
     def _capacity(self, sinrs_db: Dict[Tuple[Id, Id], float]) -> Dict[Tuple[Id, Id], float]:
         capacities_mbps = {}
-        for (tx_id, rx_id), sinr_db in sinrs_db.items():
-            tx, rx = self.devices[tx_id], self.devices[rx_id]
+        for id_pair, sinr_db in sinrs_db.items():
+            tx, rx = self.devices[id_pair[0]], self.devices[id_pair[1]]
             # max_path_loss_dB = rx.max_path_loss_dB(tx.eirp_dBm())
-            if sinr_db > rx.rx_sensitivity_dBm:
+            if sinr_db != self.default_sinr and sinr_db > rx.rx_sensitivity_dBm:
                 b = tx.rb_bandwidth_kHz * 1000
-                capacities_mbps[(tx_id, rx_id)] = float(1e-6 * b * log2(1 + dB_to_linear(sinr_db)))
+                capacities_mbps[id_pair] = float(1e-6 * b * log2(1 + dB_to_linear(sinr_db)))
             else:
-                capacities_mbps[(tx_id, rx_id)] = 0.0
+                capacities_mbps[id_pair] = 0.0
         return capacities_mbps
